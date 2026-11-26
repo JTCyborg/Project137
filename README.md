@@ -36,3 +36,17 @@ format as XRGB with an unused top byte, the number of distinct RGB colours is
 
 The source builds `vga_test.TRD` with `VGATEST.C` and `boot.B` using the
 same SjASMPlus `SAVETRD` directives as the Project132 test.
+
+
+## Build on Windows
+
+Run `build.bat` from Explorer or from a command prompt. The script invokes
+the bundled `tools/sjasmplus.exe` and creates:
+
+- `vga_test.TRD` — bootable TR-DOS test disk;
+- `vga_test.lst` — assembler listing;
+- `vga_test.map` — symbol map.
+
+The build script deletes any previous TRD/listing/map before assembling and
+returns a non-zero exit code on failure. Do not boot a stale TRD after a failed
+build.
