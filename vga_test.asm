@@ -30,8 +30,18 @@ VgaTestEntry:
 
         CALL    OpenATMShadowPorts
 
+        ; Select standard Spectrum screen page 5 before drawing status text.
+        XOR     A
+        LD      BC,$7FFD
+        OUT     (C),A
+        CALL    SpectrumShowStartup
+        LD      HL,ScreenShadowReady
+        CALL    SpectrumShowStatus
+
         LD      HL,MsgAdapterInit
         CALL    DebugPrint
+
+        CALL    SpectrumShowInitialMode
 
         ; 3DEh: software mode = 1, aperture enable = 1, bank 0.
         LD      BC,$03DE
@@ -66,6 +76,7 @@ VgaTestEntry:
 
         LD      HL,MsgFrameWritten
         CALL    DebugPrint
+        CALL    SpectrumShowInitialWriteComplete
 
         CALL    VerifyFramebuffer
         OR      A
@@ -228,6 +239,8 @@ RunPackedModeSweep:
         CALL    DebugPrint
         LD      HL,PackedModeTable
         LD      (ModeTablePtr),HL
+        LD      HL,ModeLabelTable
+        LD      (ModeLabelPtr),HL
         LD      A,9
         LD      (ModeCount),A
 
@@ -302,7 +315,9 @@ PackedModeNext:
         LD      HL,MsgBppSuffix
         CALL    DebugPrint
 
+        CALL    SpectrumShowMode
         CALL    FillModeVRAM
+        CALL    SpectrumShowWriteComplete
         CALL    WaitSpace
 
         LD      A,(ModeCount)
@@ -311,6 +326,11 @@ PackedModeNext:
         JP      NZ,PackedModeNext
         LD      HL,MsgSweepDone
         CALL    DebugPrint
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        LD      HL,ScreenAllDone
+        CALL    SpectrumPrint
         RET
 
 ; Report the maximum number of ; Fill exactly the active 8-bpp framebuffer. Each byte is one
@@ -362,6 +382,234 @@ ModePatternReady:
         JR      NZ,ModeFillBank
         RET
 
+SpectrumPrint:
+        LD      A,(HL)
+        OR      A
+        RET     Z
+        INC     HL
+        CP      13
+        JP      Z,SpectrumPrintNewLine
+        CP      32
+        JR      C,SpectrumPrint
+        CP      128
+        JR      NC,SpectrumPrint
+        PUSH    HL
+        SUB     32
+        LD      L,A
+        LD      H,0
+        ADD     HL,HL
+        ADD     HL,HL
+        ADD     HL,HL
+        LD      DE,Font88_132
+        ADD     HL,DE
+        LD      (SpectrumFontPtr),HL
+        XOR     A
+        LD      (SpectrumGlyphLine),A
+SpectrumGlyphLoop:
+        LD      HL,(SpectrumFontPtr)
+        LD      A,(HL)
+        LD      (SpectrumGlyphByte),A
+        INC     HL
+        LD      (SpectrumFontPtr),HL
+
+        ; Same bitmap address calculation as Project112 RenderGlyph_Standard112.
+        LD      A,(SpectrumCursorY)
+        ADD     A,A
+        ADD     A,A
+        ADD     A,A
+        LD      B,A
+        LD      A,(SpectrumGlyphLine)
+        ADD     A,B
+        LD      B,A
+        LD      A,B
+        AND     $C0
+        RRCA
+        RRCA
+        RRCA
+        LD      C,A
+        LD      A,B
+        AND     $07
+        OR      C
+        OR      $40
+        LD      H,A
+        LD      A,B
+        AND     $38
+        RLCA
+        RLCA
+        LD      L,A
+        LD      A,(SpectrumCursorX)
+        OR      L
+        LD      L,A
+        LD      A,(SpectrumGlyphByte)
+        LD      (HL),A
+
+        LD      A,(SpectrumGlyphLine)
+        INC     A
+        LD      (SpectrumGlyphLine),A
+        CP      8
+        JR      NZ,SpectrumGlyphLoop
+
+        ; Same attribute-cell calculation as Project112.
+        LD      A,(SpectrumCursorY)
+        LD      L,A
+        LD      H,0
+        ADD     HL,HL
+        ADD     HL,HL
+        ADD     HL,HL
+        ADD     HL,HL
+        ADD     HL,HL
+        LD      DE,$5800
+        ADD     HL,DE
+        LD      A,(SpectrumCursorX)
+        ADD     A,L
+        LD      L,A
+        JR      NC,SpectrumAttrAddressReady
+        INC     H
+SpectrumAttrAddressReady:
+        LD      A,$47
+        LD      (HL),A
+
+        LD      A,(SpectrumCursorX)
+        INC     A
+        CP      32
+        JR      C,SpectrumCursorXReady
+        XOR     A
+        LD      (SpectrumCursorX),A
+        LD      A,(SpectrumCursorY)
+        INC     A
+        CP      24
+        JR      C,SpectrumCursorYReady
+        XOR     A
+SpectrumCursorYReady:
+        LD      (SpectrumCursorY),A
+        POP     HL
+        JP      SpectrumPrint
+SpectrumCursorXReady:
+        LD      (SpectrumCursorX),A
+        POP     HL
+        JP      SpectrumPrint
+
+SpectrumPrintNewLine:
+        XOR     A
+        LD      (SpectrumCursorX),A
+        LD      A,(SpectrumCursorY)
+        INC     A
+        CP      24
+        JR      C,SpectrumNewLineYReady
+        XOR     A
+SpectrumNewLineYReady:
+        LD      (SpectrumCursorY),A
+        JP      SpectrumPrint
+
+SpectrumClear:
+        XOR     A
+        LD      (SpectrumCursorX),A
+        LD      (SpectrumCursorY),A
+        ; Clear the 6144-byte bitmap.
+        LD      HL,$4000
+        LD      DE,$4001
+        LD      BC,$17FF
+        LD      (HL),A
+        LDIR
+        ; Initialize all 768 attributes.
+        LD      HL,$5800
+        LD      DE,$5801
+        LD      BC,$02FF
+        LD      A,$07
+        LD      (HL),A
+        LDIR
+        RET
+
+SpectrumShowStartup:
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        LD      HL,ScreenStarting
+        CALL    SpectrumPrint
+        RET
+
+; HL points to a zero-terminated status string.
+SpectrumShowStatus:
+        PUSH    HL
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        POP     HL
+        CALL    SpectrumPrint
+        RET
+
+SpectrumShowInitialMode:
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        LD      HL,ScreenInitialMode
+        CALL    SpectrumPrint
+        LD      HL,ScreenInitialTestRunning
+        CALL    SpectrumPrint
+        LD      HL,ScreenWriteRunning
+        CALL    SpectrumPrint
+        RET
+
+SpectrumShowInitialWriteComplete:
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        LD      HL,ScreenInitialMode
+        CALL    SpectrumPrint
+        LD      HL,ScreenInitialTestRunning
+        CALL    SpectrumPrint
+        LD      HL,ScreenWritePassed
+        CALL    SpectrumPrint
+        RET
+
+SpectrumShowMode:
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        LD      HL,ScreenModeHeading
+        CALL    SpectrumPrint
+        ; Fetch and advance the pointer in the mode-label pointer table.
+        LD      HL,(ModeLabelPtr)
+        LD      A,(HL)
+        LD      E,A
+        INC     HL
+        LD      A,(HL)
+        LD      D,A
+        INC     HL
+        LD      (ModeLabelPtr),HL
+        EX      DE,HL
+        CALL    SpectrumPrint
+        LD      HL,ScreenTestRunning
+        CALL    SpectrumPrint
+        LD      HL,ScreenWriteRunning
+        CALL    SpectrumPrint
+        RET
+
+SpectrumShowWriteComplete:
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        LD      HL,ScreenModeHeading
+        CALL    SpectrumPrint
+        ; Re-read the just-consumed mode label without advancing the table.
+        LD      HL,(ModeLabelPtr)
+        DEC     HL
+        DEC     HL
+        LD      A,(HL)
+        LD      E,A
+        INC     HL
+        LD      A,(HL)
+        LD      D,A
+        EX      DE,HL
+        CALL    SpectrumPrint
+        LD      HL,ScreenTestRunning
+        CALL    SpectrumPrint
+        LD      HL,ScreenWritePassed
+        CALL    SpectrumPrint
+        LD      HL,ScreenNextHint
+        CALL    SpectrumPrint
+        RET
+
 ; Wait for SPACE so every resolution and its complete colour ramp
 ; remains visible until the user is ready for the next mode.
 WaitSpace:
@@ -410,6 +658,12 @@ DebugPrint:
 CurrentBank: DB 0
 
 
+ModeLabelPtr: DW 0
+SpectrumCursorX: DB 0
+SpectrumCursorY: DB 0
+SpectrumGlyphLine: DB 0
+SpectrumGlyphByte: DB 0
+SpectrumFontPtr: DW 0
 ModeTablePtr: DW 0
 ModeCount:    DB 0
 ModeXLo:      DB 0
@@ -455,6 +709,21 @@ PackedModeTable:
         DB 800&255,800>>8,600&255,600>>8,8,30,4864&255,4864>>8
         DB 1024&255,1024>>8,768&255,768>>8,8,48,0,64
 
+
+; Text shown on the Spectrum screen for each VGA mode.
+ModeLabelTable:
+        DW ModeLabel01,ModeLabel02,ModeLabel03,ModeLabel04,ModeLabel05
+        DW ModeLabel06,ModeLabel07,ModeLabel08,ModeLabel09
+ModeLabel01: DEFM "MODE 01 OF 09",13,"RESOLUTION: 320x200",13,"COLOR: 8 BPP / 256 INDEXES",13,"VRAM: 64000 BYTES",13,13,0
+ModeLabel02: DEFM "MODE 02 OF 09",13,"RESOLUTION: 320x240",13,"COLOR: 8 BPP / 256 INDEXES",13,"VRAM: 76800 BYTES",13,13,0
+ModeLabel03: DEFM "MODE 03 OF 09",13,"RESOLUTION: 512x384",13,"COLOR: 8 BPP / 256 INDEXES",13,"VRAM: 196608 BYTES",13,13,0
+ModeLabel04: DEFM "MODE 04 OF 09",13,"RESOLUTION: 640x200",13,"COLOR: 8 BPP / 256 INDEXES",13,"VRAM: 128000 BYTES",13,13,0
+ModeLabel05: DEFM "MODE 05 OF 09",13,"RESOLUTION: 640x350",13,"COLOR: 8 BPP / 256 INDEXES",13,"VRAM: 224000 BYTES",13,13,0
+ModeLabel06: DEFM "MODE 06 OF 09",13,"RESOLUTION: 640x400",13,"COLOR: 8 BPP / 256 INDEXES",13,"VRAM: 256000 BYTES",13,13,0
+ModeLabel07: DEFM "MODE 07 OF 09",13,"RESOLUTION: 640x480",13,"COLOR: 8 BPP / 256 INDEXES",13,"VRAM: 307200 BYTES",13,13,0
+ModeLabel08: DEFM "MODE 08 OF 09",13,"RESOLUTION: 800x600",13,"COLOR: 8 BPP / 256 INDEXES",13,"VRAM: 480000 BYTES",13,13,0
+ModeLabel09: DEFM "MODE 09 OF 09",13,"RESOLUTION: 1024x768",13,"COLOR: 8 BPP / 256 INDEXES",13,"VRAM: 786432 BYTES",13,13,0
+
 ColorPattern:
         ; Eight RGB565 colours, each repeated for eight adjacent pixels.
         ; This makes eight visible bars, repeated across the 640-pixel row.
@@ -481,6 +750,69 @@ MsgModePrefix:   DEFM "MODE ",0
 MsgBppSuffix:    DEFM " BPP - 256 COLOR INDEX RAMP",13,10,0
 MsgSweepDone:    DEFM "STANDARD VGA MODE SWEEP DONE",13,10,0
 
+
+ScreenTitle:       DEFM "PROJECT137 - VGA ADAPTER TEST",13,13,0
+ScreenStarting:    DEFM "STARTING VGA TEST...",13,13,0
+ScreenShadowReady: DEFM "ATM SHADOW PORTS OPENED",13,13,0
+ScreenModeHeading: DEFM "ACTIVE VGA MODE:",13,13,0
+ScreenInitialMode: DEFM "INITIAL TEST 640x480",13,"COLOR: 16 BPP / RGB565",13,13,0
+ScreenInitialTestRunning: DEFM "TEST: WRITE FRAMEBUFFER",13,"VRAM: 614400 BYTES",13,0
+ScreenTestRunning: DEFM "TEST: WRITE FRAMEBUFFER",13,0
+ScreenWriteRunning: DEFM "STATUS: WRITING - PLEASE WAIT",13,13,0
+ScreenWritePassed: DEFM "STATUS: WRITE COMPLETE",13,13,0
+ScreenNextHint: DEFM "PRESS SPACE FOR NEXT MODE",13,"WAITING FOR SPACE...",0
+ScreenAllDone: DEFM "ALL 9 VGA MODES TESTED",13,13,"TEST COMPLETE",0
+
+; Exact 768-byte font from Project112/src/font88.bin.
+Font88_132:
+        DB      $00,$00,$00,$00,$00,$00,$00,$00,$00,$08,$08,$08,$08,$00,$08,$00
+        DB      $00,$00,$00,$14,$14,$00,$00,$00,$0C,$14,$3E,$14,$3E,$18,$28,$00
+        DB      $08,$3E,$28,$1C,$0A,$3E,$08,$00,$00,$38,$28,$3C,$1E,$0A,$0E,$00
+        DB      $00,$0E,$08,$0C,$16,$14,$0E,$00,$00,$00,$00,$08,$08,$00,$00,$00
+        DB      $04,$08,$08,$08,$08,$08,$04,$00,$08,$04,$04,$04,$04,$04,$08,$00
+        DB      $00,$00,$2A,$1C,$1C,$2A,$00,$00,$00,$08,$08,$3E,$08,$08,$00,$00
+        DB      $00,$00,$00,$08,$08,$00,$00,$00,$00,$00,$00,$0C,$00,$00,$00,$00
+        DB      $00,$00,$00,$08,$00,$00,$00,$00,$02,$04,$04,$0C,$08,$08,$10,$00
+        DB      $00,$0C,$12,$1A,$12,$12,$0C,$00,$00,$18,$08,$08,$08,$08,$1C,$00
+        DB      $00,$1C,$02,$02,$04,$08,$1E,$00,$00,$1C,$02,$02,$0C,$02,$1E,$00
+        DB      $00,$04,$0C,$0C,$14,$1E,$04,$00,$00,$1E,$10,$1C,$02,$02,$1C,$00
+        DB      $00,$0E,$18,$10,$1E,$12,$0E,$00,$00,$1E,$02,$04,$04,$04,$08,$00
+        DB      $00,$0C,$12,$12,$0C,$12,$1E,$00,$00,$1C,$12,$1E,$02,$06,$1C,$00
+        DB      $00,$00,$08,$00,$00,$08,$00,$00,$00,$08,$00,$00,$08,$08,$00,$00
+        DB      $00,$00,$02,$1C,$18,$06,$00,$00,$00,$00,$1E,$00,$1E,$00,$00,$00
+        DB      $00,$00,$10,$0E,$06,$18,$00,$00,$00,$1C,$0C,$08,$08,$00,$08,$00
+        DB      $00,$0C,$12,$16,$16,$10,$0C,$00,$00,$0C,$0C,$0C,$0C,$1E,$12,$00
+        DB      $00,$1C,$12,$12,$1C,$12,$1E,$00,$00,$0E,$10,$10,$10,$10,$0E,$00
+        DB      $00,$1C,$12,$12,$12,$12,$1C,$00,$00,$1E,$10,$10,$1E,$10,$1E,$00
+        DB      $00,$1E,$10,$10,$1E,$10,$10,$00,$00,$0E,$10,$10,$16,$12,$0E,$00
+        DB      $00,$12,$12,$12,$1E,$12,$12,$00,$00,$1C,$08,$08,$08,$08,$1C,$00
+        DB      $00,$0C,$04,$04,$04,$04,$1C,$00,$00,$12,$14,$18,$14,$14,$12,$00
+        DB      $00,$10,$10,$10,$10,$10,$1E,$00,$00,$12,$1E,$1E,$1E,$12,$12,$00
+        DB      $00,$12,$1A,$1A,$16,$16,$12,$00,$00,$0C,$12,$12,$12,$12,$0C,$00
+        DB      $00,$1E,$12,$1E,$10,$10,$10,$00,$0C,$12,$12,$12,$12,$0C,$02,$00
+        DB      $00,$3C,$24,$38,$2C,$24,$22,$00,$00,$0E,$10,$1C,$06,$02,$1E,$00
+        DB      $00,$3E,$08,$08,$08,$08,$08,$00,$00,$12,$12,$12,$12,$12,$0C,$00
+        DB      $00,$12,$12,$0C,$0C,$0C,$0C,$00,$00,$22,$22,$2A,$14,$14,$14,$00
+        DB      $00,$12,$0C,$0C,$0C,$0C,$12,$00,$00,$22,$14,$08,$08,$08,$08,$00
+        DB      $00,$1E,$04,$04,$08,$08,$1E,$00,$0C,$08,$08,$08,$08,$08,$0C,$00
+        DB      $10,$08,$08,$0C,$04,$04,$02,$00,$0C,$04,$04,$04,$04,$04,$0C,$00
+        DB      $00,$00,$00,$0C,$12,$00,$00,$00,$00,$00,$00,$3E,$00,$00,$00,$00
+        DB      $00,$00,$00,$08,$00,$00,$00,$00,$00,$00,$1E,$1E,$12,$1E,$00,$00
+        DB      $10,$10,$10,$1C,$12,$12,$1C,$00,$00,$00,$0C,$10,$10,$0C,$00,$00
+        DB      $02,$02,$02,$0E,$12,$12,$0E,$00,$00,$00,$0E,$1E,$10,$0E,$00,$00
+        DB      $06,$08,$08,$1E,$08,$08,$08,$00,$00,$0E,$12,$12,$0E,$02,$1C,$00
+        DB      $10,$10,$10,$1E,$12,$12,$12,$00,$08,$00,$00,$18,$08,$08,$1C,$00
+        DB      $04,$00,$00,$0C,$04,$04,$04,$1C,$10,$10,$10,$16,$1C,$1C,$16,$00
+        DB      $18,$08,$08,$08,$08,$08,$0E,$00,$00,$00,$3E,$2A,$2A,$2A,$00,$00
+        DB      $00,$00,$1E,$12,$12,$12,$00,$00,$00,$00,$0C,$12,$12,$0C,$00,$00
+        DB      $00,$1C,$12,$12,$1C,$10,$10,$00,$00,$0E,$12,$12,$0E,$02,$02,$00
+        DB      $00,$00,$1C,$10,$10,$10,$00,$00,$00,$00,$1E,$1C,$02,$1E,$00,$00
+        DB      $00,$08,$1E,$08,$08,$0E,$00,$00,$00,$00,$12,$12,$12,$1E,$00,$00
+        DB      $00,$00,$12,$0C,$0C,$0C,$00,$00,$00,$00,$22,$2A,$1C,$14,$00,$00
+        DB      $00,$00,$1E,$0C,$0C,$1E,$00,$00,$00,$12,$0C,$0C,$08,$08,$18,$00
+        DB      $00,$00,$1E,$0C,$08,$1E,$00,$00,$0C,$08,$08,$10,$08,$08,$0C,$00
+        DB      $08,$08,$08,$08,$08,$08,$08,$08,$18,$08,$08,$04,$08,$08,$18,$00
+        DB      $00,$00,$00,$1E,$00,$00,$00,$00,$1E,$12,$12,$12,$12,$12,$1E,$00
 ProgramEnd:
 
 ; =========================================================================
