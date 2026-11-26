@@ -297,6 +297,7 @@ PackedPaletteNext:
         CALL    DebugPrint
 
         CALL    FillModeVRAM
+        CALL    SelectPaletteParameters
         CALL    VerifyDacPalette
         OR      A
         JR      NZ,PackedPaletteFailed
@@ -415,7 +416,9 @@ ProgramDacPaletteLoop:
         LD      A,(DacIndex)
         INC     A
         LD      (DacIndex),A
+        PUSH    HL
         CALL    DecPaletteRemaining
+        POP     HL
         JR      NZ,ProgramDacPaletteLoop
         RET
 
@@ -501,7 +504,9 @@ VerifyDacPaletteLoop:
         LD      A,(DacIndex)
         INC     A
         LD      (DacIndex),A
+        PUSH    HL
         CALL    DecPaletteRemaining
+        POP     HL
         JR      NZ,VerifyDacPaletteLoop
         XOR     A
         RET
@@ -1067,6 +1072,10 @@ MsgPaletteLevel: DEFM "PALETTE LEVEL ",0
 MsgPaletteSuffix: DEFM " (2/4/16/256 COLORS)",13,10,0
 MsgPalettePass:  DEFM "DAC READBACK PASS",13,10,0
 MsgPaletteFail:  DEFM "DAC READBACK FAIL",13,10,0
+; Retained for the standalone legacy DAC routine below (not called by main).
+MsgDacStart:     DEFM "256-ENTRY RGB332 DAC PROGRAMMING",13,10,0
+MsgDacPass:      DEFM "256-ENTRY DAC READBACK PASS",13,10,0
+MsgDacFail:      DEFM "256-ENTRY DAC READBACK FAIL",13,10,0
 
 
 ScreenTitle:       DEFM "PROJECT137 - VGA ADAPTER TEST",13,13,0
