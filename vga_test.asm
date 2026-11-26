@@ -1,5 +1,5 @@
 ; =========================================================================
-; PROJECT137 — ATM TURBO 2+ EXTERNAL VGA ADAPTER TEST
+; PROJECT137 — ATM TURBO 2+ EXTERNAL VGA ADAPTER STANDARD MODE TEST
 ; Based on the proven ATM startup/ROM trampoline from Project112.
 ; Target adapter: Project131 ISA VGA/SVGA software interface.
 ;
@@ -218,17 +218,17 @@ VerifyFailed:
 
 
 ; -------------------------------------------------------------------------
-; Sweep every packed-pixel mode accepted by the Project131 1 MiB adapter.
-; Supported combinations are taken from docs/ISA_VGA_Adapter.md.
-; Each mode is selected, the entire 1 MiB aperture is written, then held
-; briefly so the VGA window can be inspected before advancing.
+; Sweep the nine requested standard PC display resolutions.
+; Each mode uses 8-bpp indexed pixels and writes exactly its visible
+; framebuffer size. The repeating 00h..FFh pattern exercises all 256
+; palette indices. SPACE advances to the next resolution.
 ; -------------------------------------------------------------------------
 RunPackedModeSweep:
         LD      HL,MsgSweepStart
         CALL    DebugPrint
         LD      HL,PackedModeTable
         LD      (ModeTablePtr),HL
-        LD      A,13
+        LD      A,9
         LD      (ModeCount),A
 
 PackedModeNext:
@@ -248,30 +248,39 @@ PackedModeNext:
         LD      A,(HL)
         INC     HL
         LD      (ModeBpp),A
+        LD      A,(HL)
+        INC     HL
+        LD      (ModeBankCount),A
+        LD      A,(HL)
+        INC     HL
+        LD      (ModeLastBankBytes),A
+        LD      A,(HL)
+        INC     HL
+        LD      (ModeLastBankBytes+1),A
         LD      (ModeTablePtr),HL
 
-        LD      A,0
         LD      A,(ModeXLo)
         LD      E,A
+        LD      A,0
         CALL    WriteVgaRegister
-        LD      A,1
         LD      A,(ModeXHi)
         LD      E,A
+        LD      A,1
         CALL    WriteVgaRegister
-        LD      A,2
         LD      A,(ModeYLo)
         LD      E,A
+        LD      A,2
         CALL    WriteVgaRegister
-        LD      A,3
         LD      A,(ModeYHi)
         LD      E,A
+        LD      A,3
         CALL    WriteVgaRegister
-        LD      A,4
         LD      A,(ModeBpp)
         LD      E,A
+        LD      A,4
         CALL    WriteVgaRegister
-        LD      A,5
         LD      E,1
+        LD      A,5
         CALL    WriteVgaRegister
 
         LD      HL,MsgModePrefix
@@ -295,7 +304,7 @@ PackedModeNext:
         CALL    PrintMaxColors
 
         CALL    FillModeVRAM
-        CALL    ModeHoldDelay
+        CALL    WaitSpace
 
         LD      A,(ModeCount)
         DEC     A
@@ -340,8 +349,9 @@ PrintColors:
         CALL    DebugPrint
         RET
 
-; Fill 1 MiB with a repeating RGB/index-friendly byte pattern.
-; All 64 banks are written so the test covers the full VRAM aperture.
+; Fill exactly the active 8-bpp framebuffer. Each byte is one
+; palette index; the 256-byte pattern exercises indices 00h..FFh.
+; Only banks containing visible pixels are touched.
 FillModeVRAM:
         XOR     A
         LD      (CurrentBank),A
@@ -350,20 +360,30 @@ ModeFillBank:
         LD      BC,$03DF
         OUT     (C),A
         LD      HL,$C000
-        LD      DE,ModePattern
+        LD      DE,ModePattern8
+        LD      A,(CurrentBank)
+        LD      B,A
+        LD      A,(ModeBankCount)
+        DEC     A
+        CP      B
+        JR      NZ,ModeFillFullBank
+        LD      BC,(ModeLastBankBytes)
+        JR      ModeFillCountReady
+ModeFillFullBank:
         LD      BC,$4000
+ModeFillCountReady:
 ModeFillByte:
         LD      A,(DE)
         INC     DE
         LD      (HL),A
         INC     HL
         LD      A,D
-        CP      HIGH ModePatternEnd
+        CP      HIGH ModePattern8End
         JR      NZ,ModePatternReady
         LD      A,E
-        CP      LOW ModePatternEnd
+        CP      LOW ModePattern8End
         JR      NZ,ModePatternReady
-        LD      DE,ModePattern
+        LD      DE,ModePattern8
 ModePatternReady:
         DEC     BC
         LD      A,B
@@ -372,17 +392,24 @@ ModePatternReady:
         LD      A,(CurrentBank)
         INC     A
         LD      (CurrentBank),A
-        CP      64
+        LD      B,A
+        LD      A,(ModeBankCount)
+        CP      B
         JR      NZ,ModeFillBank
         RET
 
-ModeHoldDelay:
-        LD      DE,$FFFF
-ModeHoldLoop:
-        DEC     DE
-        LD      A,D
-        OR      E
-        JR      NZ,ModeHoldLoop
+; Wait for SPACE so every resolution and its complete colour ramp
+; remains visible until the user is ready for the next mode.
+WaitSpace:
+        LD      BC,$7FFE
+WaitSpacePress:
+        IN      A,(C)
+        AND     1
+        JR      NZ,WaitSpacePress
+WaitSpaceRelease:
+        IN      A,(C)
+        AND     1
+        JR      Z,WaitSpaceRelease
         RET
 
 DebugHexByte:
@@ -426,27 +453,43 @@ ModeXHi:      DB 0
 ModeYLo:      DB 0
 ModeYHi:      DB 0
 ModeBpp:      DB 0
+ModeBankCount: DB 0
+ModeLastBankBytes: DW 0
 
-ModePattern:
-        DB $00,$00,$1F,$00,$E0,$07,$FF,$07,$00,$F8,$1F,$F8,$E0,$FF,$FF,$FF
-ModePatternEnd:
+; Full 256-entry indexed-colour sweep. The adapter receives every index
+; from 00h through FFh repeatedly across the active framebuffer.
+ModePattern8:
+        DB 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+        DB 16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
+        DB 32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47
+        DB 48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63
+        DB 64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79
+        DB 80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95
+        DB 96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111
+        DB 112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127
+        DB 128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143
+        DB 144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159
+        DB 160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175
+        DB 176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191
+        DB 192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207
+        DB 208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223
+        DB 224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239
+        DB 240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255
+ModePattern8End:
 
-; All and only the packed modes that fit in the adapter's 1 MiB VRAM.
-; Entry: X low, X high, Y low, Y high, bits per pixel.
+; Standard PC display resolutions, all tested in 8-bpp indexed colour.
+; Entry: X low, X high, Y low, Y high, BPP, bank count, last-bank bytes.
+; Framebuffer sizes are <= 1 MiB.
 PackedModeTable:
-        DB 320&255,320>>8,200&255,200>>8,8
-        DB 320&255,320>>8,200&255,200>>8,15
-        DB 320&255,320>>8,200&255,200>>8,16
-        DB 320&255,320>>8,200&255,200>>8,24
-        DB 320&255,320>>8,200&255,200>>8,32
-        DB 640&255,640>>8,480&255,480>>8,8
-        DB 640&255,640>>8,480&255,480>>8,15
-        DB 640&255,640>>8,480&255,480>>8,16
-        DB 640&255,640>>8,480&255,480>>8,24
-        DB 800&255,800>>8,600&255,600>>8,8
-        DB 800&255,800>>8,600&255,600>>8,15
-        DB 800&255,800>>8,600&255,600>>8,16
-        DB 1024&255,1024>>8,768&255,768>>8,8
+        DB 320&255,320>>8,200&255,200>>8,8,4,14848&255,14848>>8
+        DB 320&255,320>>8,240&255,240>>8,8,5,11264&255,11264>>8
+        DB 512&255,512>>8,384&255,384>>8,8,12,0,64
+        DB 640&255,640>>8,200&255,200>>8,8,8,14336&255,14336>>8
+        DB 640&255,640>>8,350&255,350>>8,8,14,11008&255,11008>>8
+        DB 640&255,640>>8,400&255,400>>8,8,16,10240&255,10240>>8
+        DB 640&255,640>>8,480&255,480>>8,8,19,12288&255,12288>>8
+        DB 800&255,800>>8,600&255,600>>8,8,30,4864&255,4864>>8
+        DB 1024&255,1024>>8,768&255,768>>8,8,48,0,64
 
 ColorPattern:
         ; Eight RGB565 colours, each repeated for eight adjacent pixels.
@@ -469,15 +512,10 @@ MsgFrameWritten: DEFM "VRAM 614400 BYTES WRITTEN",13,10,0
 MsgReadbackPass: DEFM "VRAM READBACK PASS",13,10,0
 MsgReadbackFail: DEFM "VRAM READBACK FAIL",13,10,0
 MsgReady:        DEFM "VGA TEST COMPLETE - CHECK VGA WINDOW",13,10,0
-MsgSweepStart:   DEFM "PACKED SVGA MODE SWEEP START",13,10,0
+MsgSweepStart:   DEFM "STANDARD VGA MODE SWEEP START",13,10,0
 MsgModePrefix:   DEFM "MODE ",0
-MsgBppSuffix:    DEFM " BPP - MAX COLORS: ",0
-MsgColors256:    DEFM "256",13,10,0
-MsgColors32768:  DEFM "32768",13,10,0
-MsgColors65536:  DEFM "65536",13,10,0
-MsgColors16777216: DEFM "16777216",13,10,0
-MsgColors4294967296: DEFM "4294967296",13,10,0
-MsgSweepDone:    DEFM "PACKED SVGA MODE SWEEP DONE",13,10,0
+MsgBppSuffix:    DEFM " BPP - 256 COLOR INDEX RAMP",13,10,0
+MsgSweepDone:    DEFM "STANDARD VGA MODE SWEEP DONE",13,10,0
 
 ProgramEnd:
 

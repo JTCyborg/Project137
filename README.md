@@ -1,52 +1,35 @@
 # Project137
-АТМ турбо 2+ 1024 project
+АТМ Turbo 2+ — тест внешнего VGA-адаптера.
 
+## Проверка стандартных видеорежимов
 
-## External VGA adapter mode test
+vga_test.asm проверяет запуск VGA software mode и чтение/запись VRAM, затем последовательно включает девять стандартных разрешений:
 
-`vga_test.asm` is based on the Project132 test at commit
-`c198e938490990f9704649284b7fea20bb08cc20`.
+| Разрешение | Исторический стандарт |
+|---|---|
+| 320×200 | CGA / MCGA / VGA |
+| 320×240 | QVGA / Mode X |
+| 512×384 | Macintosh |
+| 640×200 | CGA |
+| 640×350 | EGA |
+| 640×400 | PC-98 и рабочие станции |
+| 640×480 | VGA |
+| 800×600 | SVGA |
+| 1024×768 | XGA |
 
-The test performs the ATM shadow-port unlock, enables the VGA software
-aperture, checks the initial framebuffer readback, then sweeps all 13 packed
-pixel modes supported by the 1 MiB adapter VRAM. It writes all 64 VRAM banks
-for every mode and reports each mode and its theoretical pixel-value capacity
-to debug port `#EF` (captured by `spectrum_out.txt`).
+Каждое разрешение проверяется в 8 bpp. Видеопамять заполняется циклической последовательностью индексов 00h..FFh, чтобы на экране отображались все 256 значений индексного цвета, а не несколько тестовых полос. Для каждого режима записывается только объём активного framebuffer; все режимы помещаются в 1 MiB VRAM.
 
-| Resolution | BPP | Maximum pixel values |
-|---|---:|---:|
-| 320x200 | 8 | 256 |
-| 320x200 | 15 | 32,768 |
-| 320x200 | 16 | 65,536 |
-| 320x200 | 24 | 16,777,216 |
-| 320x200 | 32 | 4,294,967,296 |
-| 640x480 | 8 | 256 |
-| 640x480 | 15 | 32,768 |
-| 640x480 | 16 | 65,536 |
-| 640x480 | 24 | 16,777,216 |
-| 800x600 | 8 | 256 |
-| 800x600 | 15 | 32,768 |
-| 800x600 | 16 | 65,536 |
-| 1024x768 | 8 | 256 |
+После заполнения каждого режима программа ждёт нажатия и отпускания SPACE, поэтому изображение остаётся на экране до перехода к следующему разрешению. Отладочные сообщения выводятся на порт #EF (лог Unreal Speccy — spectrum_out.txt).
 
-Counts are the raw number of distinct packed pixel codes (2^BPP). For 32-BPP,
-4,294,967,296 is the full 32-bit code space; if the adapter interprets the
-format as XRGB with an unused top byte, the number of distinct RGB colours is
-16,777,216 instead.
+Первичная проверка 640×480 RGB565 с readback сохранена перед перебором режимов.
 
-The source builds `vga_test.TRD` with `VGATEST.C` and `boot.B` using the
-same SjASMPlus `SAVETRD` directives as the Project132 test.
+## Сборка Windows
 
+Запусти build.bat из Проводника или командной строки. Используется приложенный tools/sjasmplus.exe.
 
-## Build on Windows
+Результат:
+- vga_test.TRD — загрузочная TR-DOS дискета;
+- vga_test.lst — листинг ассемблера;
+- vga_test.map — карта символов.
 
-Run `build.bat` from Explorer or from a command prompt. The script invokes
-the bundled `tools/sjasmplus.exe` and creates:
-
-- `vga_test.TRD` — bootable TR-DOS test disk;
-- `vga_test.lst` — assembler listing;
-- `vga_test.map` — symbol map.
-
-The build script deletes any previous TRD/listing/map before assembling and
-returns a non-zero exit code on failure. Do not boot a stale TRD after a failed
-build.
+Перед сборкой старые TRD/listing/map удаляются. Если сборка завершилась ошибкой, не запускай предыдущий vga_test.TRD.
