@@ -1,5 +1,5 @@
 ; =========================================================================
-; PROJECT137 — ATM TURBO 2+ EXTERNAL VGA ADAPTER TEST
+; PROJECT137 — ATM TURBO 2+ EXTERNAL VGA ADAPTER STANDARD MODE TEST
 ; Based on the proven ATM startup/ROM trampoline from Project112.
 ; Target adapter: Project131 ISA VGA/SVGA software interface.
 ;
@@ -218,10 +218,10 @@ VerifyFailed:
 
 
 ; -------------------------------------------------------------------------
-; Sweep every packed-pixel mode accepted by the Project131 1 MiB adapter.
-; Supported combinations are taken from docs/ISA_VGA_Adapter.md.
-; Each mode is selected, the entire 1 MiB aperture is written, then held
-; briefly so the VGA window can be inspected before advancing.
+; Sweep the nine requested standard PC display resolutions.
+; Each mode uses 8-bpp indexed pixels and writes exactly its visible
+; framebuffer size. The repeating 00h..FFh pattern exercises all 256
+; palette indices. SPACE advances to the next resolution.
 ; -------------------------------------------------------------------------
 RunPackedModeSweep:
         LD      HL,MsgSweepStart
