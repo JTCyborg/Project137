@@ -301,7 +301,6 @@ PackedModeNext:
         CALL    DebugHexByte
         LD      HL,MsgBppSuffix
         CALL    DebugPrint
-        CALL    PrintMaxColors
 
         CALL    FillModeVRAM
         CALL    WaitSpace
@@ -314,42 +313,7 @@ PackedModeNext:
         CALL    DebugPrint
         RET
 
-; Report the maximum number of distinct pixel values for the active bpp.
-; This is the raw packed-pixel capacity: 2^BPP. For 32 bpp this includes
-; all 32 stored bits (for example RGBA); RGB-only formats may use 24 bits.
-PrintMaxColors:
-        LD      A,(ModeBpp)
-        CP      8
-        JR      Z,PrintColors256
-        CP      15
-        JR      Z,PrintColors32768
-        CP      16
-        JR      Z,PrintColors65536
-        CP      24
-        JR      Z,PrintColors16777216
-        CP      32
-        JR      Z,PrintColors4294967296
-        RET
-
-PrintColors256:
-        LD      HL,MsgColors256
-        JR      PrintColors
-PrintColors32768:
-        LD      HL,MsgColors32768
-        JR      PrintColors
-PrintColors65536:
-        LD      HL,MsgColors65536
-        JR      PrintColors
-PrintColors16777216:
-        LD      HL,MsgColors16777216
-        JR      PrintColors
-PrintColors4294967296:
-        LD      HL,MsgColors4294967296
-PrintColors:
-        CALL    DebugPrint
-        RET
-
-; Fill exactly the active 8-bpp framebuffer. Each byte is one
+; Report the maximum number of ; Fill exactly the active 8-bpp framebuffer. Each byte is one
 ; palette index; the 256-byte pattern exercises indices 00h..FFh.
 ; Only banks containing visible pixels are touched.
 FillModeVRAM:
