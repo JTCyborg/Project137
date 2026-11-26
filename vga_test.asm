@@ -407,6 +407,29 @@ RunDac256Test:
         LD      E,1
         CALL    WriteVgaRegister
         CALL    ProgramDac332
+
+        ; DAC writes use ports 3C8h/3C9h. In the Project131 adapter model,
+        ; writes to legacy VGA ports clear vbe_enabled. Re-apply the packed
+        ; 320x200x8 mode AFTER programming the DAC, before touching VRAM.
+        LD      A,0
+        LD      E,64
+        CALL    WriteVgaRegister
+        LD      A,1
+        LD      E,1
+        CALL    WriteVgaRegister
+        LD      A,2
+        LD      E,200
+        CALL    WriteVgaRegister
+        LD      A,3
+        LD      E,0
+        CALL    WriteVgaRegister
+        LD      A,4
+        LD      E,8
+        CALL    WriteVgaRegister
+        LD      A,5
+        LD      E,1
+        CALL    WriteVgaRegister
+
         CALL    FillDacFramebuffer
         CALL    VerifyDac332
         OR      A
