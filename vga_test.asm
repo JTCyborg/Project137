@@ -86,6 +86,7 @@ VgaTestEntry:
         CALL    DebugPrint
 
         CALL    RunPackedModeSweep
+        CALL    RunDac256Test
 
         LD      HL,MsgReady
         CALL    DebugPrint
@@ -383,6 +384,164 @@ ModePatternReady:
         JR      NZ,ModeFillBank
         RET
 
+RunDac256Test:
+        LD      HL,MsgDacStart
+        CALL    DebugPrint
+        CALL    SpectrumShowDacStart
+        LD      A,0
+        LD      E,64
+        CALL    WriteVgaRegister
+        LD      A,1
+        LD      E,1
+        CALL    WriteVgaRegister
+        LD      A,2
+        LD      E,200
+        CALL    WriteVgaRegister
+        LD      A,3
+        LD      E,0
+        CALL    WriteVgaRegister
+        LD      A,4
+        LD      E,8
+        CALL    WriteVgaRegister
+        LD      A,5
+        LD      E,1
+        CALL    WriteVgaRegister
+        CALL    ProgramDac332
+        CALL    FillDacFramebuffer
+        CALL    VerifyDac332
+        OR      A
+        JR      NZ,DacTestFailed
+        LD      HL,MsgDacPass
+        CALL    DebugPrint
+        CALL    SpectrumShowDacPass
+        CALL    WaitSpace
+        RET
+DacTestFailed:
+        LD      HL,MsgDacFail
+        CALL    DebugPrint
+        CALL    SpectrumShowDacFail
+        CALL    WaitSpace
+        RET
+
+ProgramDac332:
+        LD      HL,Dac332Palette
+        XOR     A
+        LD      (DacIndex),A
+DacWriteLoop:
+        LD      A,(DacIndex)
+        LD      BC,$03C8
+        OUT     (C),A
+        LD      BC,$03C9
+        LD      A,(HL)
+        INC     HL
+        OUT     (C),A
+        LD      A,(HL)
+        INC     HL
+        OUT     (C),A
+        LD      A,(HL)
+        INC     HL
+        OUT     (C),A
+        LD      A,(DacIndex)
+        INC     A
+        LD      (DacIndex),A
+        JR      NZ,DacWriteLoop
+        RET
+
+FillDacFramebuffer:
+        XOR     A
+        LD      (CurrentBank),A
+        LD      (DacIndex),A
+DacFillBank:
+        LD      A,(CurrentBank)
+        LD      BC,$03DF
+        OUT     (C),A
+        LD      HL,$C000
+        LD      A,(CurrentBank)
+        CP      3
+        JR      Z,DacFillLastBank
+        LD      BC,$4000
+        JR      DacFillCountReady
+DacFillLastBank:
+        LD      BC,14848
+DacFillCountReady:
+DacFillByte:
+        LD      A,(DacIndex)
+        LD      (HL),A
+        INC     HL
+        INC     A
+        LD      (DacIndex),A
+        DEC     BC
+        LD      A,B
+        OR      C
+        JR      NZ,DacFillByte
+        LD      A,(CurrentBank)
+        INC     A
+        LD      (CurrentBank),A
+        CP      4
+        JR      NZ,DacFillBank
+        RET
+
+VerifyDac332:
+        LD      HL,Dac332Palette
+        XOR     A
+        LD      (DacIndex),A
+DacReadLoop:
+        LD      A,(DacIndex)
+        LD      BC,$03C7
+        OUT     (C),A
+        LD      BC,$03C9
+        IN      A,(C)
+        CP      (HL)
+        JR      NZ,DacVerifyFailed
+        INC     HL
+        IN      A,(C)
+        CP      (HL)
+        JR      NZ,DacVerifyFailed
+        INC     HL
+        IN      A,(C)
+        CP      (HL)
+        JR      NZ,DacVerifyFailed
+        INC     HL
+        LD      A,(DacIndex)
+        INC     A
+        LD      (DacIndex),A
+        JR      NZ,DacReadLoop
+        XOR     A
+        RET
+DacVerifyFailed:
+        LD      A,1
+        RET
+
+SpectrumShowDacStart:
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        LD      HL,ScreenDacHeading
+        CALL    SpectrumPrint
+        LD      HL,ScreenDacWriting
+        CALL    SpectrumPrint
+        RET
+SpectrumShowDacPass:
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        LD      HL,ScreenDacHeading
+        CALL    SpectrumPrint
+        LD      HL,ScreenDacPassed
+        CALL    SpectrumPrint
+        LD      HL,ScreenNextHint
+        CALL    SpectrumPrint
+        RET
+SpectrumShowDacFail:
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        LD      HL,ScreenDacHeading
+        CALL    SpectrumPrint
+        LD      HL,ScreenDacFailed
+        CALL    SpectrumPrint
+        RET
+
 SpectrumPrint:
         LD      A,(HL)
         OR      A
@@ -660,6 +819,8 @@ CurrentBank: DB 0
 
 
 ModeLabelPtr: DW 0
+DacIndex: DB 0
+DacIndex: DB 0
 SpectrumCursorX: DB 0
 SpectrumCursorY: DB 0
 SpectrumGlyphLine: DB 0
@@ -736,6 +897,12 @@ MsgSweepStart:   DEFM "STANDARD VGA MODE SWEEP START",13,10,0
 MsgModePrefix:   DEFM "MODE ",0
 MsgBppSuffix:    DEFM " BPP - 8 EGA COLOR PATTERN",13,10,0
 MsgSweepDone:    DEFM "STANDARD VGA MODE SWEEP DONE",13,10,0
+MsgDacStart:     DEFM "256-ENTRY RGB332 DAC PROGRAMMING",13,10,0
+MsgDacPass:      DEFM "256-ENTRY DAC READBACK PASS",13,10,0
+MsgDacFail:      DEFM "256-ENTRY DAC READBACK FAIL",13,10,0
+MsgDacStart:     DEFM "256-ENTRY RGB332 DAC PROGRAMMING",13,10,0
+MsgDacPass:      DEFM "256-ENTRY DAC READBACK PASS",13,10,0
+MsgDacFail:      DEFM "256-ENTRY DAC READBACK FAIL",13,10,0
 
 
 ScreenTitle:       DEFM "PROJECT137 - VGA ADAPTER TEST",13,13,0
@@ -748,7 +915,62 @@ ScreenTestRunning: DEFM "TEST: WRITE FRAMEBUFFER",13,0
 ScreenWriteRunning: DEFM "STATUS: WRITING - PLEASE WAIT",13,13,0
 ScreenWritePassed: DEFM "STATUS: WRITE COMPLETE",13,13,0
 ScreenNextHint: DEFM "PRESS SPACE FOR NEXT MODE",13,"WAITING FOR SPACE...",0
-ScreenAllDone: DEFM "ALL 9 VGA MODES TESTED",13,13,"TEST COMPLETE",0
+ScreenAllDone: DEFM "ALL 9 VGA MODES + 256 DAC",13,13,"TEST COMPLETE",0
+ScreenDacHeading: DEFM "256-COLOR VGA DAC TEST",13,13,0
+ScreenDacWriting: DEFM "PALETTE: RGB332 / 256 ENTRIES",13,"FRAMEBUFFER: 320x200 / 8 BPP",13,"STATUS: PROGRAMMING + READBACK",0
+ScreenDacPassed: DEFM "PALETTE: 256 RGB COLORS",13,"DAC READBACK: PASS (768 BYTES)",0
+ScreenDacFailed: DEFM "DAC READBACK: FAIL",13,"CHECK PORTS 3C7h / 3C9h",0
+
+Dac332Palette:
+        DB $00,$00,$00,$00,$00,$15,$00,$00,$2A,$00,$00,$3F,$00,$09,$00,$00
+        DB $09,$15,$00,$09,$2A,$00,$09,$3F,$00,$12,$00,$00,$12,$15,$00,$12
+        DB $2A,$00,$12,$3F,$00,$1B,$00,$00,$1B,$15,$00,$1B,$2A,$00,$1B,$3F
+        DB $00,$24,$00,$00,$24,$15,$00,$24,$2A,$00,$24,$3F,$00,$2D,$00,$00
+        DB $2D,$15,$00,$2D,$2A,$00,$2D,$3F,$00,$36,$00,$00,$36,$15,$00,$36
+        DB $2A,$00,$36,$3F,$00,$3F,$00,$00,$3F,$15,$00,$3F,$2A,$00,$3F,$3F
+        DB $09,$00,$00,$09,$00,$15,$09,$00,$2A,$09,$00,$3F,$09,$09,$00,$09
+        DB $09,$15,$09,$09,$2A,$09,$09,$3F,$09,$12,$00,$09,$12,$15,$09,$12
+        DB $2A,$09,$12,$3F,$09,$1B,$00,$09,$1B,$15,$09,$1B,$2A,$09,$1B,$3F
+        DB $09,$24,$00,$09,$24,$15,$09,$24,$2A,$09,$24,$3F,$09,$2D,$00,$09
+        DB $2D,$15,$09,$2D,$2A,$09,$2D,$3F,$09,$36,$00,$09,$36,$15,$09,$36
+        DB $2A,$09,$36,$3F,$09,$3F,$00,$09,$3F,$15,$09,$3F,$2A,$09,$3F,$3F
+        DB $12,$00,$00,$12,$00,$15,$12,$00,$2A,$12,$00,$3F,$12,$09,$00,$12
+        DB $09,$15,$12,$09,$2A,$12,$09,$3F,$12,$12,$00,$12,$12,$15,$12,$12
+        DB $2A,$12,$12,$3F,$12,$1B,$00,$12,$1B,$15,$12,$1B,$2A,$12,$1B,$3F
+        DB $12,$24,$00,$12,$24,$15,$12,$24,$2A,$12,$24,$3F,$12,$2D,$00,$12
+        DB $2D,$15,$12,$2D,$2A,$12,$2D,$3F,$12,$36,$00,$12,$36,$15,$12,$36
+        DB $2A,$12,$36,$3F,$12,$3F,$00,$12,$3F,$15,$12,$3F,$2A,$12,$3F,$3F
+        DB $1B,$00,$00,$1B,$00,$15,$1B,$00,$2A,$1B,$00,$3F,$1B,$09,$00,$1B
+        DB $09,$15,$1B,$09,$2A,$1B,$09,$3F,$1B,$12,$00,$1B,$12,$15,$1B,$12
+        DB $2A,$1B,$12,$3F,$1B,$1B,$00,$1B,$1B,$15,$1B,$1B,$2A,$1B,$1B,$3F
+        DB $1B,$24,$00,$1B,$24,$15,$1B,$24,$2A,$1B,$24,$3F,$1B,$2D,$00,$1B
+        DB $2D,$15,$1B,$2D,$2A,$1B,$2D,$3F,$1B,$36,$00,$1B,$36,$15,$1B,$36
+        DB $2A,$1B,$36,$3F,$1B,$3F,$00,$1B,$3F,$15,$1B,$3F,$2A,$1B,$3F,$3F
+        DB $24,$00,$00,$24,$00,$15,$24,$00,$2A,$24,$00,$3F,$24,$09,$00,$24
+        DB $09,$15,$24,$09,$2A,$24,$09,$3F,$24,$12,$00,$24,$12,$15,$24,$12
+        DB $2A,$24,$12,$3F,$24,$1B,$00,$24,$1B,$15,$24,$1B,$2A,$24,$1B,$3F
+        DB $24,$24,$00,$24,$24,$15,$24,$24,$2A,$24,$24,$3F,$24,$2D,$00,$24
+        DB $2D,$15,$24,$2D,$2A,$24,$2D,$3F,$24,$36,$00,$24,$36,$15,$24,$36
+        DB $2A,$24,$36,$3F,$24,$3F,$00,$24,$3F,$15,$24,$3F,$2A,$24,$3F,$3F
+        DB $2D,$00,$00,$2D,$00,$15,$2D,$00,$2A,$2D,$00,$3F,$2D,$09,$00,$2D
+        DB $09,$15,$2D,$09,$2A,$2D,$09,$3F,$2D,$12,$00,$2D,$12,$15,$2D,$12
+        DB $2A,$2D,$12,$3F,$2D,$1B,$00,$2D,$1B,$15,$2D,$1B,$2A,$2D,$1B,$3F
+        DB $2D,$24,$00,$2D,$24,$15,$2D,$24,$2A,$2D,$24,$3F,$2D,$2D,$00,$2D
+        DB $2D,$15,$2D,$2D,$2A,$2D,$2D,$3F,$2D,$36,$00,$2D,$36,$15,$2D,$36
+        DB $2A,$2D,$36,$3F,$2D,$3F,$00,$2D,$3F,$15,$2D,$3F,$2A,$2D,$3F,$3F
+        DB $36,$00,$00,$36,$00,$15,$36,$00,$2A,$36,$00,$3F,$36,$09,$00,$36
+        DB $09,$15,$36,$09,$2A,$36,$09,$3F,$36,$12,$00,$36,$12,$15,$36,$12
+        DB $2A,$36,$12,$3F,$36,$1B,$00,$36,$1B,$15,$36,$1B,$2A,$36,$1B,$3F
+        DB $36,$24,$00,$36,$24,$15,$36,$24,$2A,$36,$24,$3F,$36,$2D,$00,$36
+        DB $2D,$15,$36,$2D,$2A,$36,$2D,$3F,$36,$36,$00,$36,$36,$15,$36,$36
+        DB $2A,$36,$36,$3F,$36,$3F,$00,$36,$3F,$15,$36,$3F,$2A,$36,$3F,$3F
+        DB $3F,$00,$00,$3F,$00,$15,$3F,$00,$2A,$3F,$00,$3F,$3F,$09,$00,$3F
+        DB $09,$15,$3F,$09,$2A,$3F,$09,$3F,$3F,$12,$00,$3F,$12,$15,$3F,$12
+        DB $2A,$3F,$12,$3F,$3F,$1B,$00,$3F,$1B,$15,$3F,$1B,$2A,$3F,$1B,$3F
+        DB $3F,$24,$00,$3F,$24,$15,$3F,$24,$2A,$3F,$24,$3F,$3F,$2D,$00,$3F
+        DB $2D,$15,$3F,$2D,$2A,$3F,$2D,$3F,$3F,$36,$00,$3F,$36,$15,$3F,$36
+        DB $2A,$3F,$36,$3F,$3F,$3F,$00,$3F,$3F,$15,$3F,$3F,$2A,$3F,$3F,$3F
+Dac332PaletteEnd:
 
 ; Exact 768-byte font from Project112/src/font88.bin.
 Font88_132:
