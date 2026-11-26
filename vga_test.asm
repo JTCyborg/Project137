@@ -86,7 +86,6 @@ VgaTestEntry:
         CALL    DebugPrint
 
         CALL    RunPackedModeSweep
-        CALL    RunDac256Test
 
         LD      HL,MsgReady
         CALL    DebugPrint
@@ -246,6 +245,7 @@ RunPackedModeSweep:
         LD      A,9
         LD      (ModeCount),A
 
+; Outer loop: increase resolution only after all four palette sizes pass.
 PackedModeNext:
         LD      HL,(ModeTablePtr)
         LD      A,(HL)
@@ -274,6 +274,67 @@ PackedModeNext:
         LD      (ModeLastBankBytes+1),A
         LD      (ModeTablePtr),HL
 
+        CALL    ConfigureCurrentMode
+        CALL    SpectrumShowMode
+
+        XOR     A
+        LD      (PaletteLevel),A
+
+; Inner loop: 2, 4, 16 and 256 DAC entries at this resolution.
+PackedPaletteNext:
+        CALL    SelectPaletteParameters
+        CALL    ProgramDacPalette
+
+        ; Legacy DAC writes disable VBE in the adapter model.
+        ; Re-apply this resolution's indexed 8-bpp mode before VRAM access.
+        CALL    ConfigureCurrentMode
+
+        LD      HL,MsgPaletteLevel
+        CALL    DebugPrint
+        LD      A,(PaletteLevel)
+        CALL    DebugHexByte
+        LD      HL,MsgPaletteSuffix
+        CALL    DebugPrint
+
+        CALL    FillModeVRAM
+        CALL    VerifyDacPalette
+        OR      A
+        JR      NZ,PackedPaletteFailed
+
+        LD      HL,MsgPalettePass
+        CALL    DebugPrint
+        CALL    SpectrumShowWriteComplete
+        CALL    WaitSpace
+
+        LD      A,(PaletteLevel)
+        INC     A
+        LD      (PaletteLevel),A
+        CP      4
+        JR      NZ,PackedPaletteNext
+
+        LD      A,(ModeCount)
+        DEC     A
+        LD      (ModeCount),A
+        JP      NZ,PackedModeNext
+
+        LD      HL,MsgSweepDone
+        CALL    DebugPrint
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        LD      HL,ScreenAllDone
+        CALL    SpectrumPrint
+        RET
+
+PackedPaletteFailed:
+        LD      HL,MsgPaletteFail
+        CALL    DebugPrint
+        CALL    SpectrumShowDacFail
+        CALL    WaitSpace
+        RET
+
+; Re-apply the currently selected packed-pixel 8-bpp resolution.
+ConfigureCurrentMode:
         LD      A,(ModeXLo)
         LD      E,A
         LD      A,0
@@ -290,49 +351,80 @@ PackedModeNext:
         LD      E,A
         LD      A,3
         CALL    WriteVgaRegister
-        LD      A,(ModeBpp)
+        LD      A,8
         LD      E,A
         LD      A,4
         CALL    WriteVgaRegister
-        LD      E,1
+        LD      A,1
+        LD      E,A
         LD      A,5
         CALL    WriteVgaRegister
+        RET
 
-        LD      HL,MsgModePrefix
-        CALL    DebugPrint
-        LD      A,(ModeXHi)
-        CALL    DebugHexByte
-        LD      A,(ModeXLo)
-        CALL    DebugHexByte
-        LD      A,'x'
-        OUT     ($EF),A
-        LD      A,(ModeYHi)
-        CALL    DebugHexByte
-        LD      A,(ModeYLo)
-        CALL    DebugHexByte
-        LD      A,' '
-        OUT     ($EF),A
-        LD      A,(ModeBpp)
-        CALL    DebugHexByte
-        LD      HL,MsgBppSuffix
-        CALL    DebugPrint
+; Palette table entry: count (word), index mask (byte), DAC source stride
+; beyond RGB (word). The RGB332 source table contains 256 evenly ordered
+; entries, so each smaller palette samples the full colour range.
+SelectPaletteParameters:
+        LD      HL,PaletteConfigTable
+        LD      A,(PaletteLevel)
+        OR      A
+        JR      Z,PaletteConfigFound
+        LD      B,A
+PaletteConfigSkip:
+        LD      DE,5
+        ADD     HL,DE
+        DJNZ    PaletteConfigSkip
+PaletteConfigFound:
+        LD      A,(HL)
+        INC     HL
+        LD      (PaletteRemaining),A
+        LD      A,(HL)
+        INC     HL
+        LD      (PaletteRemaining+1),A
+        LD      A,(HL)
+        INC     HL
+        LD      (PaletteMask),A
+        LD      A,(HL)
+        INC     HL
+        LD      (PaletteStride),A
+        LD      A,(HL)
+        LD      (PaletteStride+1),A
+        RET
 
-        CALL    SpectrumShowMode
-        CALL    FillModeVRAM
-        CALL    SpectrumShowWriteComplete
-        CALL    WaitSpace
+; Program the selected number of DAC entries from the full RGB332 ramp.
+ProgramDacPalette:
+        LD      HL,Dac332Palette
+        LD      DE,(PaletteStride)
+        XOR     A
+        LD      (DacIndex),A
+ProgramDacPaletteLoop:
+        LD      A,(DacIndex)
+        LD      BC,$03C8
+        OUT     (C),A
+        LD      BC,$03C9
+        LD      A,(HL)
+        INC     HL
+        OUT     (C),A
+        LD      A,(HL)
+        INC     HL
+        OUT     (C),A
+        LD      A,(HL)
+        INC     HL
+        OUT     (C),A
+        ADD     HL,DE
+        LD      A,(DacIndex)
+        INC     A
+        LD      (DacIndex),A
+        CALL    DecPaletteRemaining
+        JR      NZ,ProgramDacPaletteLoop
+        RET
 
-        LD      A,(ModeCount)
-        DEC     A
-        LD      (ModeCount),A
-        JP      NZ,PackedModeNext
-        LD      HL,MsgSweepDone
-        CALL    DebugPrint
-        CALL    SpectrumClear
-        LD      HL,ScreenTitle
-        CALL    SpectrumPrint
-        LD      HL,ScreenAllDone
-        CALL    SpectrumPrint
+DecPaletteRemaining:
+        LD      HL,(PaletteRemaining)
+        DEC     HL
+        LD      (PaletteRemaining),HL
+        LD      A,H
+        OR      L
         RET
 
 ; Fill exactly the active 8-bpp framebuffer. Each byte is one palette
@@ -341,6 +433,7 @@ PackedModeNext:
 FillModeVRAM:
         XOR     A
         LD      (CurrentBank),A
+        LD      (DacIndex),A
 ModeFillBank:
         LD      A,(CurrentBank)
         LD      BC,$03DF
@@ -359,18 +452,14 @@ ModeFillFullBank:
         LD      BC,$4000
 ModeFillCountReady:
 ModeFillByte:
-        LD      A,(DE)
-        INC     DE
+        LD      A,(DacIndex)
         LD      (HL),A
         INC     HL
-        LD      A,D
-        CP      HIGH ModePattern8End
-        JR      NZ,ModePatternReady
-        LD      A,E
-        CP      LOW ModePattern8End
-        JR      NZ,ModePatternReady
-        LD      DE,ModePattern8
-ModePatternReady:
+        INC     A
+        LD      E,A
+        LD      A,(PaletteMask)
+        AND     E
+        LD      (DacIndex),A
         DEC     BC
         LD      A,B
         OR      C
@@ -382,6 +471,42 @@ ModePatternReady:
         LD      A,(ModeBankCount)
         CP      B
         JR      NZ,ModeFillBank
+        RET
+
+; Read back every programmed DAC entry, including all RGB components.
+; Return A=0 on success, A=1 on mismatch.
+VerifyDacPalette:
+        LD      HL,Dac332Palette
+        LD      DE,(PaletteStride)
+        XOR     A
+        LD      (DacIndex),A
+VerifyDacPaletteLoop:
+        LD      A,(DacIndex)
+        LD      BC,$03C7
+        OUT     (C),A
+        LD      BC,$03C9
+        IN      A,(C)
+        CP      (HL)
+        JR      NZ,VerifyDacPaletteFailed
+        INC     HL
+        IN      A,(C)
+        CP      (HL)
+        JR      NZ,VerifyDacPaletteFailed
+        INC     HL
+        IN      A,(C)
+        CP      (HL)
+        JR      NZ,VerifyDacPaletteFailed
+        INC     HL
+        ADD     HL,DE
+        LD      A,(DacIndex)
+        INC     A
+        LD      (DacIndex),A
+        CALL    DecPaletteRemaining
+        JR      NZ,VerifyDacPaletteLoop
+        XOR     A
+        RET
+VerifyDacPaletteFailed:
+        LD      A,1
         RET
 
 RunDac256Test:
@@ -857,6 +982,10 @@ ModeYHi:      DB 0
 ModeBpp:      DB 0
 ModeBankCount: DB 0
 ModeLastBankBytes: DW 0
+PaletteLevel: DB 0
+PaletteMask: DB 0
+PaletteRemaining: DW 0
+PaletteStride: DW 0
 
 ; Sixteen initialized EGA palette indices, each repeated twice.
 ; Project132 also uses EGA entry 15 as white for its on-screen banner.
@@ -880,19 +1009,34 @@ PackedModeTable:
         DB 1024&255,1024>>8,768&255,768>>8,8,48,0,64
 
 
+; Palette levels: 2, 4, 16 and 256 entries. Stride skips through RGB332.
+PaletteConfigTable:
+        DW 2
+        DB 1
+        DW 381
+        DW 4
+        DB 3
+        DW 189
+        DW 16
+        DB 15
+        DW 45
+        DW 256
+        DB 255
+        DW 0
+
 ; Text shown on the Spectrum screen for each VGA mode.
 ModeLabelTable:
         DW ModeLabel01,ModeLabel02,ModeLabel03,ModeLabel04,ModeLabel05
         DW ModeLabel06,ModeLabel07,ModeLabel08,ModeLabel09
-ModeLabel01: DEFM "MODE 01 OF 09",13,"RESOLUTION: 320x200",13,"COLOR: 8 BPP / 16 EGA COLORS",13,"VRAM: 64000 BYTES",13,13,0
-ModeLabel02: DEFM "MODE 02 OF 09",13,"RESOLUTION: 320x240",13,"COLOR: 8 BPP / 8 EGA COLORS",13,"VRAM: 76800 BYTES",13,13,0
-ModeLabel03: DEFM "MODE 03 OF 09",13,"RESOLUTION: 512x384",13,"COLOR: 8 BPP / 8 EGA COLORS",13,"VRAM: 196608 BYTES",13,13,0
-ModeLabel04: DEFM "MODE 04 OF 09",13,"RESOLUTION: 640x200",13,"COLOR: 8 BPP / 8 EGA COLORS",13,"VRAM: 128000 BYTES",13,13,0
-ModeLabel05: DEFM "MODE 05 OF 09",13,"RESOLUTION: 640x350",13,"COLOR: 8 BPP / 8 EGA COLORS",13,"VRAM: 224000 BYTES",13,13,0
-ModeLabel06: DEFM "MODE 06 OF 09",13,"RESOLUTION: 640x400",13,"COLOR: 8 BPP / 8 EGA COLORS",13,"VRAM: 256000 BYTES",13,13,0
-ModeLabel07: DEFM "MODE 07 OF 09",13,"RESOLUTION: 640x480",13,"COLOR: 8 BPP / 8 EGA COLORS",13,"VRAM: 307200 BYTES",13,13,0
-ModeLabel08: DEFM "MODE 08 OF 09",13,"RESOLUTION: 800x600",13,"COLOR: 8 BPP / 8 EGA COLORS",13,"VRAM: 480000 BYTES",13,13,0
-ModeLabel09: DEFM "MODE 09 OF 09",13,"RESOLUTION: 1024x768",13,"COLOR: 8 BPP / 8 EGA COLORS",13,"VRAM: 786432 BYTES",13,13,0
+ModeLabel01: DEFM "MODE 01 OF 09",13,"RESOLUTION: 320x200",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 64000 BYTES",13,13,0
+ModeLabel02: DEFM "MODE 02 OF 09",13,"RESOLUTION: 320x240",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 76800 BYTES",13,13,0
+ModeLabel03: DEFM "MODE 03 OF 09",13,"RESOLUTION: 512x384",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 196608 BYTES",13,13,0
+ModeLabel04: DEFM "MODE 04 OF 09",13,"RESOLUTION: 640x200",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 128000 BYTES",13,13,0
+ModeLabel05: DEFM "MODE 05 OF 09",13,"RESOLUTION: 640x350",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 224000 BYTES",13,13,0
+ModeLabel06: DEFM "MODE 06 OF 09",13,"RESOLUTION: 640x400",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 256000 BYTES",13,13,0
+ModeLabel07: DEFM "MODE 07 OF 09",13,"RESOLUTION: 640x480",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 307200 BYTES",13,13,0
+ModeLabel08: DEFM "MODE 08 OF 09",13,"RESOLUTION: 800x600",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 480000 BYTES",13,13,0
+ModeLabel09: DEFM "MODE 09 OF 09",13,"RESOLUTION: 1024x768",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 786432 BYTES",13,13,0
 
 ColorPattern:
         ; Eight RGB565 colours, each repeated for eight adjacent pixels.
@@ -915,13 +1059,14 @@ MsgFrameWritten: DEFM "VRAM 614400 BYTES WRITTEN",13,10,0
 MsgReadbackPass: DEFM "VRAM READBACK PASS",13,10,0
 MsgReadbackFail: DEFM "VRAM READBACK FAIL",13,10,0
 MsgReady:        DEFM "VGA TEST COMPLETE - CHECK VGA WINDOW",13,10,0
-MsgSweepStart:   DEFM "STANDARD VGA MODE SWEEP START",13,10,0
+MsgSweepStart:   DEFM "VGA RESOLUTION/PALETTE MATRIX START",13,10,0
 MsgModePrefix:   DEFM "MODE ",0
-MsgBppSuffix:    DEFM " BPP - 8 EGA COLOR PATTERN",13,10,0
-MsgSweepDone:    DEFM "STANDARD VGA MODE SWEEP DONE",13,10,0
-MsgDacStart:     DEFM "256-ENTRY RGB332 DAC PROGRAMMING",13,10,0
-MsgDacPass:      DEFM "256-ENTRY DAC READBACK PASS",13,10,0
-MsgDacFail:      DEFM "256-ENTRY DAC READBACK FAIL",13,10,0
+MsgBppSuffix:    DEFM " BPP - INDEXED DAC PALETTE",13,10,0
+MsgSweepDone:    DEFM "ALL RESOLUTIONS AND PALETTES DONE",13,10,0
+MsgPaletteLevel: DEFM "PALETTE LEVEL ",0
+MsgPaletteSuffix: DEFM " (2/4/16/256 COLORS)",13,10,0
+MsgPalettePass:  DEFM "DAC READBACK PASS",13,10,0
+MsgPaletteFail:  DEFM "DAC READBACK FAIL",13,10,0
 
 
 ScreenTitle:       DEFM "PROJECT137 - VGA ADAPTER TEST",13,13,0
@@ -933,8 +1078,8 @@ ScreenInitialTestRunning: DEFM "TEST: WRITE FRAMEBUFFER",13,"VRAM: 614400 BYTES"
 ScreenTestRunning: DEFM "TEST: WRITE FRAMEBUFFER",13,0
 ScreenWriteRunning: DEFM "STATUS: WRITING - PLEASE WAIT",13,13,0
 ScreenWritePassed: DEFM "STATUS: WRITE COMPLETE",13,13,0
-ScreenNextHint: DEFM "PRESS SPACE FOR NEXT MODE",13,"WAITING FOR SPACE...",0
-ScreenAllDone: DEFM "ALL 9 VGA MODES + 256 DAC",13,13,"TEST COMPLETE",0
+ScreenNextHint: DEFM "PRESS SPACE FOR NEXT PALETTE",13,"WAITING FOR SPACE...",0
+ScreenAllDone: DEFM "9 RESOLUTIONS x 4 PALETTES",13,13,"TEST COMPLETE",0
 ScreenDacHeading: DEFM "256-COLOR VGA DAC TEST",13,13,0
 ScreenDacWriting: DEFM "PALETTE: RGB332 / 256 ENTRIES",13,"FRAMEBUFFER: 320x200 / 8 BPP",13,"STATUS: PROGRAMMING + READBACK",0
 ScreenDacPassed: DEFM "PALETTE: 256 RGB COLORS",13,"DAC READBACK: PASS (768 BYTES)",0
