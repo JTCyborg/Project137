@@ -675,10 +675,11 @@ ModeBpp:      DB 0
 ModeBankCount: DB 0
 ModeLastBankBytes: DW 0
 
-; Eight initialized EGA palette indices, each repeated twice.
-; This is the known-good indexed-colour pattern from Project132.
+; Sixteen initialized EGA palette indices, each repeated twice.
+; Project132 also uses EGA entry 15 as white for its on-screen banner.
 ModePattern8:
         DB $00,$00,$01,$01,$02,$02,$03,$03,$04,$04,$05,$05,$06,$06,$07,$07
+        DB $08,$08,$09,$09,$0A,$0A,$0B,$0B,$0C,$0C,$0D,$0D,$0E,$0E,$0F,$0F
 ModePattern8End:
 
 ; Standard PC display resolutions, all tested in 8-bpp indexed colour.
@@ -700,7 +701,7 @@ PackedModeTable:
 ModeLabelTable:
         DW ModeLabel01,ModeLabel02,ModeLabel03,ModeLabel04,ModeLabel05
         DW ModeLabel06,ModeLabel07,ModeLabel08,ModeLabel09
-ModeLabel01: DEFM "MODE 01 OF 09",13,"RESOLUTION: 320x200",13,"COLOR: 8 BPP / 8 EGA COLORS",13,"VRAM: 64000 BYTES",13,13,0
+ModeLabel01: DEFM "MODE 01 OF 09",13,"RESOLUTION: 320x200",13,"COLOR: 8 BPP / 16 EGA COLORS",13,"VRAM: 64000 BYTES",13,13,0
 ModeLabel02: DEFM "MODE 02 OF 09",13,"RESOLUTION: 320x240",13,"COLOR: 8 BPP / 8 EGA COLORS",13,"VRAM: 76800 BYTES",13,13,0
 ModeLabel03: DEFM "MODE 03 OF 09",13,"RESOLUTION: 512x384",13,"COLOR: 8 BPP / 8 EGA COLORS",13,"VRAM: 196608 BYTES",13,13,0
 ModeLabel04: DEFM "MODE 04 OF 09",13,"RESOLUTION: 640x200",13,"COLOR: 8 BPP / 8 EGA COLORS",13,"VRAM: 128000 BYTES",13,13,0
