@@ -384,6 +384,164 @@ ModePatternReady:
         JR      NZ,ModeFillBank
         RET
 
+RunDac256Test:
+        LD      HL,MsgDacStart
+        CALL    DebugPrint
+        CALL    SpectrumShowDacStart
+        LD      A,0
+        LD      E,64
+        CALL    WriteVgaRegister
+        LD      A,1
+        LD      E,1
+        CALL    WriteVgaRegister
+        LD      A,2
+        LD      E,200
+        CALL    WriteVgaRegister
+        LD      A,3
+        LD      E,0
+        CALL    WriteVgaRegister
+        LD      A,4
+        LD      E,8
+        CALL    WriteVgaRegister
+        LD      A,5
+        LD      E,1
+        CALL    WriteVgaRegister
+        CALL    ProgramDac332
+        CALL    FillDacFramebuffer
+        CALL    VerifyDac332
+        OR      A
+        JR      NZ,DacTestFailed
+        LD      HL,MsgDacPass
+        CALL    DebugPrint
+        CALL    SpectrumShowDacPass
+        CALL    WaitSpace
+        RET
+DacTestFailed:
+        LD      HL,MsgDacFail
+        CALL    DebugPrint
+        CALL    SpectrumShowDacFail
+        CALL    WaitSpace
+        RET
+
+ProgramDac332:
+        LD      HL,Dac332Palette
+        XOR     A
+        LD      (DacIndex),A
+DacWriteLoop:
+        LD      A,(DacIndex)
+        LD      BC,$03C8
+        OUT     (C),A
+        LD      BC,$03C9
+        LD      A,(HL)
+        INC     HL
+        OUT     (C),A
+        LD      A,(HL)
+        INC     HL
+        OUT     (C),A
+        LD      A,(HL)
+        INC     HL
+        OUT     (C),A
+        LD      A,(DacIndex)
+        INC     A
+        LD      (DacIndex),A
+        JR      NZ,DacWriteLoop
+        RET
+
+FillDacFramebuffer:
+        XOR     A
+        LD      (CurrentBank),A
+        LD      (DacIndex),A
+DacFillBank:
+        LD      A,(CurrentBank)
+        LD      BC,$03DF
+        OUT     (C),A
+        LD      HL,$C000
+        LD      A,(CurrentBank)
+        CP      3
+        JR      Z,DacFillLastBank
+        LD      BC,$4000
+        JR      DacFillCountReady
+DacFillLastBank:
+        LD      BC,14848
+DacFillCountReady:
+DacFillByte:
+        LD      A,(DacIndex)
+        LD      (HL),A
+        INC     HL
+        INC     A
+        LD      (DacIndex),A
+        DEC     BC
+        LD      A,B
+        OR      C
+        JR      NZ,DacFillByte
+        LD      A,(CurrentBank)
+        INC     A
+        LD      (CurrentBank),A
+        CP      4
+        JR      NZ,DacFillBank
+        RET
+
+VerifyDac332:
+        LD      HL,Dac332Palette
+        XOR     A
+        LD      (DacIndex),A
+DacReadLoop:
+        LD      A,(DacIndex)
+        LD      BC,$03C7
+        OUT     (C),A
+        LD      BC,$03C9
+        IN      A,(C)
+        CP      (HL)
+        JR      NZ,DacVerifyFailed
+        INC     HL
+        IN      A,(C)
+        CP      (HL)
+        JR      NZ,DacVerifyFailed
+        INC     HL
+        IN      A,(C)
+        CP      (HL)
+        JR      NZ,DacVerifyFailed
+        INC     HL
+        LD      A,(DacIndex)
+        INC     A
+        LD      (DacIndex),A
+        JR      NZ,DacReadLoop
+        XOR     A
+        RET
+DacVerifyFailed:
+        LD      A,1
+        RET
+
+SpectrumShowDacStart:
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        LD      HL,ScreenDacHeading
+        CALL    SpectrumPrint
+        LD      HL,ScreenDacWriting
+        CALL    SpectrumPrint
+        RET
+SpectrumShowDacPass:
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        LD      HL,ScreenDacHeading
+        CALL    SpectrumPrint
+        LD      HL,ScreenDacPassed
+        CALL    SpectrumPrint
+        LD      HL,ScreenNextHint
+        CALL    SpectrumPrint
+        RET
+SpectrumShowDacFail:
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        LD      HL,ScreenDacHeading
+        CALL    SpectrumPrint
+        LD      HL,ScreenDacFailed
+        CALL    SpectrumPrint
+        RET
+
 SpectrumPrint:
         LD      A,(HL)
         OR      A
@@ -660,7 +818,8 @@ DebugPrint:
 CurrentBank: DB 0
 
 
-ModeLabelPtr: DW 0\nDacIndex: DB 0
+ModeLabelPtr: DW 0
+DacIndex: DB 0\nDacIndex: DB 0
 SpectrumCursorX: DB 0
 SpectrumCursorY: DB 0
 SpectrumGlyphLine: DB 0
@@ -736,7 +895,10 @@ MsgReady:        DEFM "VGA TEST COMPLETE - CHECK VGA WINDOW",13,10,0
 MsgSweepStart:   DEFM "STANDARD VGA MODE SWEEP START",13,10,0
 MsgModePrefix:   DEFM "MODE ",0
 MsgBppSuffix:    DEFM " BPP - 8 EGA COLOR PATTERN",13,10,0
-MsgSweepDone:    DEFM "STANDARD VGA MODE SWEEP DONE",13,10,0\nMsgDacStart:     DEFM "256-ENTRY RGB332 DAC PROGRAMMING",13,10,0\nMsgDacPass:      DEFM "256-ENTRY DAC READBACK PASS",13,10,0\nMsgDacFail:      DEFM "256-ENTRY DAC READBACK FAIL",13,10,0
+MsgSweepDone:    DEFM "STANDARD VGA MODE SWEEP DONE",13,10,0
+MsgDacStart:     DEFM "256-ENTRY RGB332 DAC PROGRAMMING",13,10,0
+MsgDacPass:      DEFM "256-ENTRY DAC READBACK PASS",13,10,0
+MsgDacFail:      DEFM "256-ENTRY DAC READBACK FAIL",13,10,0\nMsgDacStart:     DEFM "256-ENTRY RGB332 DAC PROGRAMMING",13,10,0\nMsgDacPass:      DEFM "256-ENTRY DAC READBACK PASS",13,10,0\nMsgDacFail:      DEFM "256-ENTRY DAC READBACK FAIL",13,10,0
 
 
 ScreenTitle:       DEFM "PROJECT137 - VGA ADAPTER TEST",13,13,0
