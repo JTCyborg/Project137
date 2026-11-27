@@ -659,7 +659,7 @@ RunTextModeTest:
         ; The adapter must derive text geometry from these registers;
         ; the renderer must not invent a default column count.
         LD      HL,TextCrtcMode3
-        LD      D,18
+        LD      D,19
         LD      BC,$03D4
 TextCrtcWrite:
         LD      A,(HL)
