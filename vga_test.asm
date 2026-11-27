@@ -415,7 +415,7 @@ Run2DGradientTest:
         CALL    WriteAccelRegister
         CALL    CheckAccelDone
         OR      A
-        JP      NZ,Run2DGradientFailed
+        JP      NZ,Run2DGradientStatusFailed
 
         ; Read back first, midpoint (x=160 -> 80h), and last pixel.
         XOR     A
@@ -455,10 +455,43 @@ Run2DGradientTest:
         XOR     A
         RET
 
+Run2DGradientStatusFailed:
+        ; Preserve the adapter's diagnostic status before printing.
+        LD      BC,$03E2
+        LD      A,1
+        OUT     (C),A
+        INC     C
+        IN      A,(C)
+        CP      $81
+        JR      Z,Run2DGradientVbeDisabled
+        CP      $82
+        JR      Z,Run2DGradientBadRect
+        CP      $83
+        JR      Z,Run2DGradientBadAddress
+        CP      $84
+        JR      Z,Run2DGradientBadCommand
+        LD      HL,Msg2DGradientUnknownStatus
+        JR      Run2DGradientReportStatus
+Run2DGradientVbeDisabled:
+        LD      HL,Msg2DGradientVbeDisabled
+        JR      Run2DGradientReportStatus
+Run2DGradientBadRect:
+        LD      HL,Msg2DGradientBadRect
+        JR      Run2DGradientReportStatus
+Run2DGradientBadAddress:
+        LD      HL,Msg2DGradientBadAddress
+        JR      Run2DGradientReportStatus
+Run2DGradientBadCommand:
+        LD      HL,Msg2DGradientBadCommand
+Run2DGradientReportStatus:
+        CALL    DebugPrint
+        JP      Run2DGradientFailCommon
+
 Run2DGradientReadbackFailed:
 Run2DGradientFailed:
         LD      HL,Msg2DGradientFail
         CALL    DebugPrint
+Run2DGradientFailCommon:
         CALL    SpectrumShow2DGradientFail
         CALL    WaitSpace
         LD      A,1
@@ -1504,6 +1537,11 @@ Msg2DReadbackFail: DEFM "2D ENGINE VRAM READBACK FAIL",13,10,0
 Msg2DGradientStart: DEFM "2D ENGINE: 256-COLOR GRADIENT START",13,10,0
 Msg2DGradientPass: DEFM "2D ENGINE PASS: 256-COLOR GRADIENT + READBACK",13,10,0
 Msg2DGradientFail: DEFM "2D ENGINE 256-COLOR GRADIENT FAIL",13,10,0
+Msg2DGradientVbeDisabled: DEFM "2D GRADIENT ERROR: VBE DISABLED (81)",13,10,0
+Msg2DGradientBadRect: DEFM "2D GRADIENT ERROR: INVALID RECTANGLE (82)",13,10,0
+Msg2DGradientBadAddress: DEFM "2D GRADIENT ERROR: INVALID VRAM ADDRESS (83)",13,10,0
+Msg2DGradientBadCommand: DEFM "2D GRADIENT ERROR: UNSUPPORTED COMMAND (84)",13,10,0
+Msg2DGradientUnknownStatus: DEFM "2D GRADIENT ERROR: UNKNOWN STATUS",13,10,0
 MsgPaletteLevel: DEFM "PALETTE LEVEL ",0
 MsgPaletteSuffix: DEFM " (2/4/16/256 COLOR GRADIENT)",13,10,0
 MsgPalettePass:  DEFM "DAC READBACK PASS",13,10,0
