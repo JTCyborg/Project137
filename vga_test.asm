@@ -663,7 +663,7 @@ TextCrtcMode3:
         DB $11,$0E
         DB $00,$5F, $01,$4F, $02,$50, $03,$82
         DB $04,$54, $05,$80, $06,$BF, $07,$1F
-        DB $09,$0F, $0A,$0D, $0B,$0E, $0C,$80
+        DB $09,$0F, $0A,$0D, $0B,$0E, $0C,$00
         DB $0D,$00, $0E,$00, $0F,$00, $10,$9C
         DB $12,$8F, $13,$28, $14,$00, $15,$96
         DB $16,$B9, $17,$A3, $18,$FF
@@ -702,6 +702,16 @@ TextCrtcWrite:
         DEC     C
         DEC     D
         JR      NZ,TextCrtcWrite
+
+        ; Text lives in Spectrum bridge bank 6 (plane offset 18000h).
+        ; Select matching Trident extended CRTC MA17/MA18 bits as PCem does.
+        LD      BC,$03D4
+        LD      A,$27
+        OUT     (C),A
+        INC     C
+        LD      A,$03
+        OUT     (C),A
+
 
         ; Select 9-dot VGA text characters (Sequencer Clocking Mode bit 0 = 0).
         LD      BC,$03C4
