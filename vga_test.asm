@@ -492,12 +492,26 @@ ModeFillByte:
         JR      ModePatternAdvanceDone
 
 ModePatternContinue:
+        ; A 256-entry palette cannot fit as eight-pixel bars. Use one
+        ; pixel per colour so all 256 DAC entries appear across the row.
+        LD      A,(PaletteMask)
+        CP      $FF
+        JR      Z,ModePatternWidthOne
+
+        ; Smaller palettes retain the wider eight-pixel bars.
         LD      A,(PatternCounter)
         INC     A
         CP      8
         JR      NZ,ModePatternHold
         XOR     A
         LD      (PatternCounter),A
+        JR      ModePatternAdvanceColour
+
+ModePatternWidthOne:
+        XOR     A
+        LD      (PatternCounter),A
+
+ModePatternAdvanceColour:
         LD      A,(DacIndex)
         INC     A
         LD      E,A
@@ -505,6 +519,7 @@ ModePatternContinue:
         AND     E
         LD      (DacIndex),A
         JR      ModePatternAdvanceDone
+
 ModePatternHold:
         LD      (PatternCounter),A
 ModePatternAdvanceDone:
