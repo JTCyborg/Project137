@@ -526,7 +526,7 @@ ModePatternAdvanceDone:
 ; Read back every programmed DAC entry, including all RGB components.
 ; Return A=0 on success, A=1 on mismatch.
 VerifyDacPalette:
-        LD      HL,Dac332Palette
+        LD      HL,DacHuePalette
         LD      DE,(PaletteStride)
         XOR     A
         LD      (DacIndex),A
@@ -624,7 +624,7 @@ DacTestFailed:
         RET
 
 ProgramDac332:
-        LD      HL,Dac332Palette
+        LD      HL,DacHuePalette
         XOR     A
         LD      (DacIndex),A
 DacWriteLoop:
@@ -682,7 +682,7 @@ DacFillByte:
         RET
 
 VerifyDac332:
-        LD      HL,Dac332Palette
+        LD      HL,DacHuePalette
         XOR     A
         LD      (DacIndex),A
 DacReadLoop:
