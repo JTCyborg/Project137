@@ -644,8 +644,8 @@
  639  83E9 02 50 03 82
  640  83ED 04 54 05 80          DB $04,$54, $05,$80, $06,$BF, $07,$1F
  640  83F1 06 BF 07 1F
- 641  83F5 09 0F 0A 0D          DB $09,$0F, $0A,$0D, $0B,$0E, $0C,$00
- 641  83F9 0B 0E 0C 00
+ 641  83F5 09 0F 0A 0D          DB $09,$0F, $0A,$0D, $0B,$0E, $0C,$80
+ 641  83F9 0B 0E 0C 80
  642  83FD 0D 00 0E 00          DB $0D,$00, $0E,$00, $0F,$00, $10,$9C
  642  8401 0F 00 10 9C
  643  8405 12 8F 13 28          DB $12,$8F, $13,$28, $14,$00, $15,$96
@@ -669,7 +669,7 @@
  659  841C                      ; The adapter must derive text geometry from these registers;
  660  841C                      ; the renderer must not invent a default column count.
  661  841C 21 E3 83             LD      HL,TextCrtcMode3
- 662  841F 16 12                LD      D,18
+ 662  841F 16 13                LD      D,19
  663  8421 01 D4 03             LD      BC,$03D4
  664  8424              TextCrtcWrite:
  665  8424 7E                   LD      A,(HL)
