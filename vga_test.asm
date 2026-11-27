@@ -666,7 +666,7 @@ TextCrtcMode3:
         DB $09,$0F, $0A,$0D, $0B,$0E, $0C,$80
         DB $0D,$00, $0E,$00, $0F,$00, $10,$9C
         DB $12,$8F, $13,$28, $14,$00, $15,$96
-        DB $16,$B9, $17,$A3, $18,$FF
+        DB $16,$B9, $17,$83, $18,$FF
 
 ; -------------------------------------------------------------------------
 ; VGA text-mode test: 80x25, character plane 0, attribute plane 1.
@@ -702,6 +702,17 @@ TextCrtcWrite:
         DEC     C
         DEC     D
         JR      NZ,TextCrtcWrite
+
+        ; Text lives in Spectrum bridge bank 6 (plane offset 18000h).
+        ; CRTC[1E].A0 adds MA16, so start 8000h resolves to 18000h
+        ; before PCem's four-byte interleaved display-address conversion.
+        LD      BC,$03D4
+        LD      A,$1E
+        OUT     (C),A
+        INC     C
+        LD      A,$A0
+        OUT     (C),A
+
 
         ; Select 9-dot VGA text characters (Sequencer Clocking Mode bit 0 = 0).
         LD      BC,$03C4
