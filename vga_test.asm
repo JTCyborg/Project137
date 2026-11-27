@@ -711,6 +711,54 @@ RunGeometryTextScene:
         CALL    SceneRunCommand
         OR      A
         RET     NZ
+        LD      HL,SceneOctagon01
+        LD      A,SceneOctagon01End-SceneOctagon01
+        LD      E,3
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,SceneOctagon02
+        LD      A,SceneOctagon02End-SceneOctagon02
+        LD      E,3
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,SceneOctagon03
+        LD      A,SceneOctagon03End-SceneOctagon03
+        LD      E,3
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,SceneOctagon04
+        LD      A,SceneOctagon04End-SceneOctagon04
+        LD      E,3
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,SceneOctagon05
+        LD      A,SceneOctagon05End-SceneOctagon05
+        LD      E,3
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,SceneOctagon06
+        LD      A,SceneOctagon06End-SceneOctagon06
+        LD      E,3
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,SceneOctagon07
+        LD      A,SceneOctagon07End-SceneOctagon07
+        LD      E,3
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,SceneOctagon08
+        LD      A,SceneOctagon08End-SceneOctagon08
+        LD      E,3
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
 
         ; Overlay text directly into the packed framebuffer. The same
         ; 8x8 bitmap font is enlarged by integer scaling, not by changing
@@ -1452,6 +1500,38 @@ SceneLine05:
         DB $02,$00,$0E,$40,$0F,$01,$14,96,$15,0,$16,36,$17,0
         DB $1C,$FF,$1D,0,$1E,0,$1F,0,$20,152,$21,0,$22,64,$23,0
 SceneLine05End:
+SceneOctagon01:
+        DB $02,$00,$0E,$40,$0F,$01,$14,260,$15,0,$16,30,$17,0
+        DB $1C,$FF,$1D,0,$1E,0,$1F,0,$20,276,$21,0,$22,36,$23,0
+SceneOctagon01End:
+SceneOctagon02:
+        DB $02,$00,$0E,$40,$0F,$01,$14,276,$15,0,$16,36,$17,0
+        DB $1C,$FF,$1D,0,$1E,0,$1F,0,$20,282,$21,0,$22,52,$23,0
+SceneOctagon02End:
+SceneOctagon03:
+        DB $02,$00,$0E,$40,$0F,$01,$14,282,$15,0,$16,52,$17,0
+        DB $1C,$FF,$1D,0,$1E,0,$1F,0,$20,276,$21,0,$22,68,$23,0
+SceneOctagon03End:
+SceneOctagon04:
+        DB $02,$00,$0E,$40,$0F,$01,$14,276,$15,0,$16,68,$17,0
+        DB $1C,$FF,$1D,0,$1E,0,$1F,0,$20,260,$21,0,$22,74,$23,0
+SceneOctagon04End:
+SceneOctagon05:
+        DB $02,$00,$0E,$40,$0F,$01,$14,260,$15,0,$16,74,$17,0
+        DB $1C,$FF,$1D,0,$1E,0,$1F,0,$20,244,$21,0,$22,68,$23,0
+SceneOctagon05End:
+SceneOctagon06:
+        DB $02,$00,$0E,$40,$0F,$01,$14,244,$15,0,$16,68,$17,0
+        DB $1C,$FF,$1D,0,$1E,0,$1F,0,$20,238,$21,0,$22,52,$23,0
+SceneOctagon06End:
+SceneOctagon07:
+        DB $02,$00,$0E,$40,$0F,$01,$14,238,$15,0,$16,52,$17,0
+        DB $1C,$FF,$1D,0,$1E,0,$1F,0,$20,244,$21,0,$22,36,$23,0
+SceneOctagon07End:
+SceneOctagon08:
+        DB $02,$00,$0E,$40,$0F,$01,$14,244,$15,0,$16,36,$17,0
+        DB $1C,$FF,$1D,0,$1E,0,$1F,0,$20,260,$21,0,$22,30,$23,0
+SceneOctagon08End:
 SceneTextSmall:  DEFM "P137 GEOMETRY / 256 COLOURS",0
 SceneTextMedium: DEFM "MEDIUM TEXT",0
 SceneTextLarge:  DEFM "BIG",0
