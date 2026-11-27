@@ -925,6 +925,8 @@ SceneScaledColumn:
 
 ; Pixel address = y*320+x. Convert to the 16 KiB bridge bank and aperture.
 ScenePlotPixel:
+        ; Preserve BC: the glyph rasterizer uses B as its 8-column counter.
+        PUSH    BC
         LD      A,(ScenePixelY)
         LD      L,A
         LD      H,0
@@ -959,6 +961,7 @@ ScenePlotPixel:
         ADD     HL,DE
         LD      A,(SceneTextColor)
         LD      (HL),A
+        POP     BC
         RET
 
 
