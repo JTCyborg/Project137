@@ -795,6 +795,12 @@ TextClearAttrs:
         LD      DE,$C140
         CALL    TextWriteString
 
+        LD      A,$0F
+        LD      (TextAttribute),A
+        LD      HL,TextLine5
+        LD      DE,$C190
+        CALL    TextWriteString
+
         ; Draw all sixteen VGA foreground colours on a blue background.
         ; Row 6 is intentionally below the existing sample text so the
         ; subsequent scroll moves this colour ramp to row 5.
