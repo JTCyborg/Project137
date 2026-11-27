@@ -634,12 +634,14 @@ Run2DAcceleratorTest:
 ; IBM VGA mode 3 CRTC timing. Indexed register/value pairs.
 ; CR11 is written with bit 7 clear to unlock vertical timing registers.
 TextCrtcMode3:
+        ; Unlock protected CRTC registers before changing horizontal timing.
+        DB $11,$0E
         DB $00,$5F, $01,$4F, $02,$50, $03,$82
         DB $04,$54, $05,$80, $06,$BF, $07,$1F
         DB $09,$0F, $0A,$0D, $0B,$0E, $0C,$00
         DB $0D,$00, $0E,$00, $0F,$00, $10,$9C
-        DB $11,$0E, $12,$8F, $13,$28, $14,$00
-        DB $15,$96, $16,$B9, $17,$A3, $18,$FF
+        DB $12,$8F, $13,$28, $14,$00, $15,$96
+        DB $16,$B9, $17,$A3, $18,$FF
 
 ; -------------------------------------------------------------------------
 ; VGA text-mode test: 80x25, character plane 0, attribute plane 1.
