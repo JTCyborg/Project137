@@ -463,10 +463,10 @@ ModeFillByte:
         LD      A,(DacIndex)
         LD      (HL),A
         INC     HL
+        PUSH    HL                    ; preserve framebuffer write pointer
 
-        ; Keep the palette pattern aligned to each scanline. The previous
-        ; linear pattern advanced across row boundaries, producing diagonal
-        ; colour bands (especially obvious with 16 and 256 entries).
+        ; Advance the horizontal pixel counter independently of HL, which
+        ; must continue to point into the VGA aperture for the next write.
         LD      HL,(ModeXCounter)
         INC     HL
         LD      (ModeXCounter),HL
@@ -479,6 +479,8 @@ ModeFillByte:
         SBC     HL,DE
         POP     HL
         JR      NZ,ModePatternContinue
+
+        ; Start every scanline with palette index zero.
         LD      HL,0
         LD      (ModeXCounter),HL
         XOR     A
@@ -503,6 +505,7 @@ ModePatternContinue:
 ModePatternHold:
         LD      (PatternCounter),A
 ModePatternAdvanceDone:
+        POP     HL                    ; restore framebuffer write pointer
         DEC     BC
         LD      A,B
         OR      C
