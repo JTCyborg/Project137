@@ -629,7 +629,285 @@ Run2DAcceleratorTest:
         OR      A
         RET     NZ
         CALL    RunTextModeTest
+        OR      A
+        RET     NZ
+        CALL    RunGeometryTextScene
         RET
+
+
+; -------------------------------------------------------------------------
+; Geometry + mixed-size graphics text scene.
+; 320x200x8bpp: accelerator gradient, filled rectangles, polygon/diagonal
+; line geometry, then software-rendered 8x8 font at 1x, 2x and 3x scale.
+; The text is drawn into the same packed-pixel framebuffer as the shapes.
+; -------------------------------------------------------------------------
+RunGeometryTextScene:
+        LD      HL,MsgGeometryStart
+        CALL    DebugPrint
+        CALL    SpectrumShowGeometryStart
+
+        LD      A,3
+        LD      (PaletteLevel),A
+        CALL    SelectPaletteParameters
+        CALL    ProgramDacPalette
+        CALL    ConfigureCurrentMode
+
+        ; Full-screen 256-entry colour gradient is the scene background.
+        LD      HL,AccelGradientRegs
+        LD      A,AccelGradientRegsEnd-AccelGradientRegs
+        LD      E,4
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+
+        ; Three filled geometric figures with different palette regions.
+        LD      HL,SceneRectRed
+        LD      A,SceneRectRedEnd-SceneRectRed
+        LD      E,1
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,SceneRectGreen
+        LD      A,SceneRectGreenEnd-SceneRectGreen
+        LD      E,1
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,SceneRectBlue
+        LD      A,SceneRectBlueEnd-SceneRectBlue
+        LD      E,1
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+
+        ; Triangle and diagonals, each edge is a separate Bresenham command.
+        LD      HL,SceneLine01
+        LD      A,SceneLine01End-SceneLine01
+        LD      E,3
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,SceneLine02
+        LD      A,SceneLine02End-SceneLine02
+        LD      E,3
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,SceneLine03
+        LD      A,SceneLine03End-SceneLine03
+        LD      E,3
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,SceneLine04
+        LD      A,SceneLine04End-SceneLine04
+        LD      E,3
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,SceneLine05
+        LD      A,SceneLine05End-SceneLine05
+        LD      E,3
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+
+        ; Overlay text directly into the packed framebuffer. The same
+        ; 8x8 bitmap font is enlarged by integer scaling, not by changing
+        ; VGA text timing, so all three sizes coexist in one graphics frame.
+        LD      HL,SceneTextSmall
+        LD      (SceneTextPtr),HL
+        LD      A,8
+        LD      (SceneTextX),A
+        LD      A,8
+        LD      (SceneTextY),A
+        LD      A,1
+        LD      (SceneTextScale),A
+        LD      A,$FF
+        LD      (SceneTextColor),A
+        CALL    SceneDrawText
+
+        LD      HL,SceneTextMedium
+        LD      (SceneTextPtr),HL
+        LD      A,8
+        LD      (SceneTextX),A
+        LD      A,128
+        LD      (SceneTextY),A
+        LD      A,2
+        LD      (SceneTextScale),A
+        LD      A,$F0
+        LD      (SceneTextColor),A
+        CALL    SceneDrawText
+
+        LD      HL,SceneTextLarge
+        LD      (SceneTextPtr),HL
+        LD      A,170
+        LD      (SceneTextX),A
+        LD      A,148
+        LD      (SceneTextY),A
+        LD      A,3
+        LD      (SceneTextScale),A
+        LD      A,$FC
+        LD      (SceneTextColor),A
+        CALL    SceneDrawText
+
+        LD      HL,MsgGeometryPass
+        CALL    DebugPrint
+        CALL    SpectrumShowGeometryPass
+        CALL    WaitSpace
+        XOR     A
+        RET
+
+; HL=register table, A=table byte count, E=accelerator command.
+SceneRunCommand:
+        LD      (SceneCommand),A
+        LD      A,E
+        LD      (SceneCommand+1),A
+        LD      A,(SceneCommand)
+        CALL    WriteAccelRegisterTable
+        LD      A,0
+        LD      E,(SceneCommand+1)
+        CALL    WriteAccelRegister
+        JP      CheckAccelDone
+
+; Draw one zero-terminated ASCII string from SceneTextPtr.
+; Font88_132 stores 8 bytes per glyph for character codes 20h..7Fh.
+SceneDrawText:
+SceneDrawNextChar:
+        LD      HL,(SceneTextPtr)
+        LD      A,(HL)
+        OR      A
+        RET     Z
+        INC     HL
+        LD      (SceneTextPtr),HL
+        SUB     32
+        LD      L,A
+        LD      H,0
+        ADD     HL,HL
+        ADD     HL,HL
+        ADD     HL,HL
+        LD      DE,Font88_132
+        ADD     HL,DE
+        LD      (SceneGlyphPtr),HL
+        XOR     A
+        LD      (SceneGlyphRow),A
+        LD      A,(SceneTextY)
+        LD      (SceneRowY),A
+SceneGlyphRowLoop:
+        LD      HL,(SceneGlyphPtr)
+        LD      A,(HL)
+        LD      (SceneGlyphBits),A
+        INC     HL
+        LD      (SceneGlyphPtr),HL
+        LD      A,(SceneTextX)
+        LD      (SceneColumnX),A
+        LD      B,8
+SceneGlyphColumnLoop:
+        LD      A,(SceneGlyphBits)
+        RLCA
+        LD      (SceneGlyphBits),A
+        JR      NC,SceneGlyphPixelSkip
+        LD      A,(SceneColumnX)
+        LD      (SceneBlockX),A
+        LD      A,(SceneRowY)
+        LD      (SceneBlockY),A
+        CALL    ScenePlotScaledPixel
+SceneGlyphPixelSkip:
+        LD      A,(SceneTextScale)
+        LD      C,A
+        LD      A,(SceneColumnX)
+        ADD     A,C
+        LD      (SceneColumnX),A
+        DJNZ    SceneGlyphColumnLoop
+
+        LD      A,(SceneTextScale)
+        LD      C,A
+        LD      A,(SceneRowY)
+        ADD     A,C
+        LD      (SceneRowY),A
+        LD      A,(SceneGlyphRow)
+        INC     A
+        LD      (SceneGlyphRow),A
+        CP      8
+        JR      NZ,SceneGlyphRowLoop
+
+        LD      A,(SceneTextScale)
+        ADD     A,A
+        ADD     A,A
+        ADD     A,A
+        LD      C,A
+        LD      A,(SceneTextX)
+        ADD     A,C
+        LD      (SceneTextX),A
+        JP      SceneDrawNextChar
+
+; Fill one glyph pixel as a Scale x Scale block.
+ScenePlotScaledPixel:
+        LD      A,(SceneBlockY)
+        LD      (SceneWorkY),A
+        LD      A,(SceneTextScale)
+        LD      (SceneRowsLeft),A
+SceneScaledRow:
+        LD      A,(SceneBlockX)
+        LD      (SceneWorkX),A
+        LD      A,(SceneTextScale)
+        LD      (SceneColumnsLeft),A
+SceneScaledColumn:
+        LD      A,(SceneWorkX)
+        LD      (ScenePixelX),A
+        LD      A,(SceneWorkY)
+        LD      (ScenePixelY),A
+        CALL    ScenePlotPixel
+        LD      A,(SceneWorkX)
+        INC     A
+        LD      (SceneWorkX),A
+        LD      A,(SceneColumnsLeft)
+        DEC     A
+        LD      (SceneColumnsLeft),A
+        JR      NZ,SceneScaledColumn
+        LD      A,(SceneWorkY)
+        INC     A
+        LD      (SceneWorkY),A
+        LD      A,(SceneRowsLeft)
+        DEC     A
+        LD      (SceneRowsLeft),A
+        JR      NZ,SceneScaledRow
+        RET
+
+; Pixel address = y*320+x. Convert to the 16 KiB bridge bank and aperture.
+ScenePlotPixel:
+        LD      A,(ScenePixelY)
+        LD      L,A
+        LD      H,0
+        ADD     HL,HL
+        ADD     HL,HL
+        ADD     HL,HL
+        ADD     HL,HL
+        ADD     HL,HL
+        ADD     HL,HL                 ; y*64
+        LD      A,(ScenePixelY)
+        LD      D,A
+        LD      E,0                   ; y*256
+        ADD     HL,DE                 ; y*320
+        LD      A,(ScenePixelX)
+        LD      E,A
+        LD      D,0
+        ADD     HL,DE
+        LD      A,H
+        RRCA
+        RRCA
+        AND     3
+        LD      BC,$03DF
+        OUT     (C),A
+        LD      A,H
+        AND     $3F
+        LD      H,A
+        LD      DE,$C000
+        ADD     HL,DE
+        LD      A,(SceneTextColor)
+        LD      (HL),A
+        RET
+
 
 ; Restore the standard 16-colour VGA/EGA DAC palette (6-bit RGB).
 ; This keeps the text-mode colour test independent of the preceding
@@ -1133,6 +1411,46 @@ CheckAccelFailed:
         RET
 
 ; Register tables: index,value pairs. All addresses are byte offsets in VRAM.
+
+SceneRectRed:
+        DB $02,$00,$08,$00,$09,$00,$0A,$00,$0B,$00,$0E,$40,$0F,$01
+        DB $14,24,$15,0,$16,36,$17,0,$18,56,$19,0,$1A,28,$1B,0
+        DB $1C,$E3,$1D,0,$1E,0,$1F,0
+SceneRectRedEnd:
+SceneRectGreen:
+        DB $02,$00,$08,$00,$09,$00,$0A,$00,$0B,$00,$0E,$40,$0F,$01
+        DB $14,96,$15,0,$16,36,$17,0,$18,56,$19,0,$1A,28,$1B,0
+        DB $1C,$2A,$1D,0,$1E,0,$1F,0
+SceneRectGreenEnd:
+SceneRectBlue:
+        DB $02,$00,$08,$00,$09,$00,$0A,$00,$0B,$00,$0E,$40,$0F,$01
+        DB $14,168,$15,0,$16,36,$17,0,$18,56,$19,0,$1A,28,$1B,0
+        DB $1C,$D5,$1D,0,$1E,0,$1F,0
+SceneRectBlueEnd:
+SceneLine01:
+        DB $02,$00,$0E,$40,$0F,$01,$14,20,$15,0,$16,160,$17,0
+        DB $1C,$FF,$1D,0,$1E,0,$1F,0,$20,40,$21,0,$22,100,$23,0
+SceneLine01End:
+SceneLine02:
+        DB $02,$00,$0E,$40,$0F,$01,$14,160,$15,0,$16,100,$17,0
+        DB $1C,$FC,$1D,0,$1E,0,$1F,0,$20,20,$21,0,$22,100,$23,0
+SceneLine02End:
+SceneLine03:
+        DB $02,$00,$0E,$40,$0F,$01,$14,20,$15,0,$16,100,$17,0
+        DB $1C,$F0,$1D,0,$1E,0,$1F,0,$20,160,$21,0,$22,100,$23,0
+SceneLine03End:
+SceneLine04:
+        DB $02,$00,$0E,$40,$0F,$01,$14,24,$15,0,$16,36,$17,0
+        DB $1C,$FF,$1D,0,$1E,0,$1F,0,$20,80,$21,0,$22,64,$23,0
+SceneLine04End:
+SceneLine05:
+        DB $02,$00,$0E,$40,$0F,$01,$14,96,$15,0,$16,36,$17,0
+        DB $1C,$FF,$1D,0,$1E,0,$1F,0,$20,152,$21,0,$22,64,$23,0
+SceneLine05End:
+SceneTextSmall:  DEFM "P137 GEOMETRY / 256 COLOURS",0
+SceneTextMedium: DEFM "MEDIUM TEXT",0
+SceneTextLarge:  DEFM "BIG",0
+
 AccelFillRegs:
         DB $02,$00                 ; ROP COPY
         DB $08,$00,$09,$00,$0A,$00,$0B,$00 ; destination base = 0
@@ -1569,6 +1887,26 @@ SpectrumShowTextStart:
         LD      HL,ScreenTextRunning
         CALL    SpectrumPrint
         RET
+
+SpectrumShowGeometryStart:
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        LD      HL,ScreenGeometryHeading
+        CALL    SpectrumPrint
+        LD      HL,ScreenGeometryRunning
+        CALL    SpectrumPrint
+        RET
+SpectrumShowGeometryPass:
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        LD      HL,ScreenGeometryHeading
+        CALL    SpectrumPrint
+        LD      HL,ScreenGeometryPassed
+        CALL    SpectrumPrint
+        RET
+
 SpectrumShowTextPass:
         CALL    SpectrumClear
         LD      HL,ScreenTitle
@@ -1930,6 +2268,26 @@ DebugPrint:
         INC     HL
         JR      DebugPrint
 
+
+SceneCommand:      DB 0,0
+SceneTextPtr:      DW 0
+SceneGlyphPtr:     DW 0
+SceneTextX:        DB 0
+SceneTextY:        DB 0
+SceneTextScale:    DB 1
+SceneTextColor:    DB $FF
+SceneGlyphRow:     DB 0
+SceneGlyphBits:    DB 0
+SceneRowY:         DB 0
+SceneColumnX:      DB 0
+SceneBlockX:       DB 0
+SceneBlockY:       DB 0
+SceneWorkX:        DB 0
+SceneWorkY:        DB 0
+ScenePixelX:       DB 0
+ScenePixelY:       DB 0
+SceneRowsLeft:     DB 0
+SceneColumnsLeft:  DB 0
 CurrentBank: DB 0
 TextAttribute: DB $07
 AccelPairCount: DB 0
@@ -2045,6 +2403,9 @@ Msg2DPass:        DEFM "2D ENGINE PASS: FILL BITBLT LINE READBACK",13,10,0
 Msg2DFail:        DEFM "2D ENGINE COMMAND FAILED",13,10,0
 Msg2DReadbackFail: DEFM "2D ENGINE VRAM READBACK FAIL",13,10,0
 Msg2DGradientStart: DEFM "2D ENGINE: 256-COLOR GRADIENT START",13,10,0
+
+MsgGeometryStart: DEFM "VGA GEOMETRY + MIXED-SIZE TEXT START",13,10,0
+MsgGeometryPass:  DEFM "VGA GEOMETRY + SCALED TEXT DRAWN",13,10,0
 MsgTextStart: DEFM "VGA TEXT MODE: 80X25 OUTPUT + SCROLL START",13,10,0
 MsgTextPass: DEFM "VGA TEXT PASS: SCROLL + 16 COLORS + PLANE READBACK",13,10,0
 MsgTextFail: DEFM "VGA TEXT MODE FAIL: OUTPUT OR SCROLL READBACK",13,10,0
@@ -2093,6 +2454,10 @@ Screen2DGradientHeading: DEFM "VGA 2D 256-COLOR GRADIENT",13,13,0
 Screen2DGradientRunning: DEFM "DAC: 256 HUE ENTRIES",13,"2D GRADIENT FILL: ONE COMMAND",13,"FRAMEBUFFER: 320x200x8",13,"STATUS: RUNNING",0
 Screen2DGradientPassed: DEFM "2D GRADIENT FILL: PASS",13,"2D GRADIENT COMMAND: 1",13,"VRAM ENDPOINTS: PASS",13,13,"PRESS SPACE",0
 Screen2DGradientFailed: DEFM "2D GRADIENT FAILED",13,"CHECK 3E2h / 3E3h",0
+
+ScreenGeometryHeading: DEFM "VGA GEOMETRY + GRAPHICS TEXT",13,13,0
+ScreenGeometryRunning: DEFM "256-COLOUR GRADIENT",13,"RECTANGLES + TRIANGLE LINES",13,"8x8 / 16x16 / 24x24 FONT",13,"STATUS: DRAWING",0
+ScreenGeometryPassed: DEFM "GRADIENT: DRAWN",13,"FILLED SHAPES: DRAWN",13,"LINE GEOMETRY: DRAWN",13,"TEXT SIZES: SMALL / MEDIUM / LARGE",13,13,"PRESS SPACE",0
 ScreenTextHeading: DEFM "VGA 80x25 TEXT MODE",13,13,0
 ScreenTextRunning: DEFM "PLANES: CHARACTER + ATTRIBUTE",13,"SCROLL: 1 ROW UP",13,"STATUS: RUNNING",0
 ScreenTextPassed: DEFM "TEXT OUTPUT: PASS",13,"SCROLL UP: PASS",13,"16 FOREGROUND COLORS: PASS",13,"PLANE READBACK: PASS",13,13,"PRESS SPACE",0
