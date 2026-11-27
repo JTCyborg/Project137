@@ -632,6 +632,9 @@ Run2DAcceleratorTest:
         OR      A
         RET     NZ
         CALL    RunGeometryTextScene
+        OR      A
+        RET     NZ
+        CALL    Run640GeometryTest
         RET
 
 
@@ -795,6 +798,82 @@ RunGeometryTextScene:
         RET
 
 ; HL=register table, A=table byte count, E=accelerator command.
+; Separate 640x480x8bpp primitive and viewport clipping stage.
+Run640GeometryTest:
+        LD      HL,Msg640GeometryStart
+        CALL    DebugPrint
+        CALL    SpectrumShowGeometryStart
+        LD      A,3
+        LD      (PaletteLevel),A
+        CALL    SelectPaletteParameters
+        CALL    ProgramDacPalette
+        LD      A,0
+        LD      E,$80
+        CALL    WriteVgaRegister
+        LD      A,1
+        LD      E,$02
+        CALL    WriteVgaRegister
+        LD      A,2
+        LD      E,$E0
+        CALL    WriteVgaRegister
+        LD      A,3
+        LD      E,$01
+        CALL    WriteVgaRegister
+        LD      A,4
+        LD      E,8
+        CALL    WriteVgaRegister
+        LD      A,5
+        LD      E,1
+        CALL    WriteVgaRegister
+        LD      HL,Geom640Circle
+        LD      A,Geom640CircleEnd-Geom640Circle
+        LD      E,5
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,Geom640Ellipse
+        LD      A,Geom640EllipseEnd-Geom640Ellipse
+        LD      E,6
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,Geom640Triangle
+        LD      A,Geom640TriangleEnd-Geom640Triangle
+        LD      E,7
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,Geom640ClipLeft
+        LD      A,Geom640ClipLeftEnd-Geom640ClipLeft
+        LD      E,3
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,Geom640ClipRight
+        LD      A,Geom640ClipRightEnd-Geom640ClipRight
+        LD      E,3
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,Geom640ClipTop
+        LD      A,Geom640ClipTopEnd-Geom640ClipTop
+        LD      E,3
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,Geom640ClipBottom
+        LD      A,Geom640ClipBottomEnd-Geom640ClipBottom
+        LD      E,3
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
+        LD      HL,Msg640GeometryDrawn
+        CALL    DebugPrint
+        CALL    SpectrumShowGeometryPass
+        CALL    WaitSpace
+        XOR     A
+        RET
+
 SceneRunCommand:
         LD      (SceneCommand),A
         LD      A,E
@@ -1516,6 +1595,37 @@ SceneOctagon08:
         DB $02,$00,$0E,$40,$0F,$01,$14,244,$15,0,$16,36,$17,0
         DB $1C,$AA,$1D,0,$1E,0,$1F,0,$20,4,$21,1,$22,30,$23,0
 SceneOctagon08End:
+; 640x480 indexed framebuffer, pitch 640.
+Geom640Circle:
+        DB $02,$00,$0E,$80,$0F,$02,$14,24,$15,0,$16,80,$17,0
+        DB $18,58,$19,0,$1C,$F0,$1D,0,$1E,0,$1F,0
+Geom640CircleEnd:
+Geom640Ellipse:
+        DB $02,$00,$0E,$80,$0F,$02,$14,98,$15,2,$16,210,$17,0
+        DB $18,72,$19,0,$1A,92,$1B,0,$1C,$35,$1D,0,$1E,0,$1F,0
+Geom640EllipseEnd:
+Geom640Triangle:
+        DB $02,$00,$0E,$80,$0F,$02
+        DB $10,70,$11,0,$12,44,$13,1,$14,24,$15,1,$16,$FA,$17,0
+        DB $20,104,$21,1,$22,$B8,$23,1,$1C,$C0,$1D,0,$1E,0,$1F,0
+Geom640TriangleEnd:
+Geom640ClipLeft:
+        DB $02,$00,$0E,$80,$0F,$02,$14,$D8,$15,$FF,$16,100,$17,0
+        DB $20,180,$21,0,$22,100,$23,0,$1C,$FF,$1D,0,$1E,0,$1F,0
+Geom640ClipLeftEnd:
+Geom640ClipRight:
+        DB $02,$00,$0E,$80,$0F,$02,$14,560,$15,1,$16,130,$17,0
+        DB $20,80,$21,3,$22,130,$23,0,$1C,$FF,$1D,0,$1E,0,$1F,0
+Geom640ClipRightEnd:
+Geom640ClipTop:
+        DB $02,$00,$0E,$80,$0F,$02,$14,320,$15,0,$16,$D8,$17,$FF
+        DB $20,320,$21,0,$22,180,$23,0,$1C,$FF,$1D,0,$1E,0,$1F,0
+Geom640ClipTopEnd:
+Geom640ClipBottom:
+        DB $02,$00,$0E,$80,$0F,$02,$14,420,$15,0,$16,420,$17,1
+        DB $20,420,$21,0,$22,180,$23,3,$1C,$FF,$1D,0,$1E,0,$1F,0
+Geom640ClipBottomEnd:
+
 SceneTextSmall:  DEFM "P137 GEOMETRY / 256 COLOURS",0
 SceneTextMedium: DEFM "MEDIUM TEXT",0
 SceneTextLarge:  DEFM "BIG",0
@@ -2475,6 +2585,8 @@ Msg2DGradientStart: DEFM "2D ENGINE: 256-COLOR GRADIENT START",13,10,0
 
 MsgGeometryStart: DEFM "VGA GEOMETRY + MIXED-SIZE TEXT START",13,10,0
 MsgGeometryPass:  DEFM "VGA GEOMETRY + SCALED TEXT DRAWN",13,10,0
+Msg640GeometryStart: DEFM "VGA 640X480 GEOMETRY + CLIPPING START",13,10,0
+Msg640GeometryDrawn: DEFM "VGA 640X480 CIRCLE ELLIPSE TRIANGLE CLIP DRAWN",13,10,0
 MsgTextStart: DEFM "VGA TEXT MODE: 80X25 OUTPUT + SCROLL START",13,10,0
 MsgTextPass: DEFM "VGA TEXT PASS: SCROLL + 16 COLORS + PLANE READBACK",13,10,0
 MsgTextFail: DEFM "VGA TEXT MODE FAIL: OUTPUT OR SCROLL READBACK",13,10,0
