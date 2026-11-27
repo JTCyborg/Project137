@@ -825,6 +825,12 @@ Run640GeometryTest:
         LD      A,5
         LD      E,1
         CALL    WriteVgaRegister
+        LD      HL,Geom640Gradient
+        LD      A,Geom640GradientEnd-Geom640Gradient
+        LD      E,4
+        CALL    SceneRunCommand
+        OR      A
+        RET     NZ
         LD      HL,Geom640Circle
         LD      A,Geom640CircleEnd-Geom640Circle
         LD      E,5
@@ -1596,6 +1602,11 @@ SceneOctagon08:
         DB $1C,$AA,$1D,0,$1E,0,$1F,0,$20,4,$21,1,$22,30,$23,0
 SceneOctagon08End:
 ; 640x480 indexed framebuffer, pitch 640.
+Geom640Gradient:
+        DB $02,$00,$0E,$80,$0F,$02,$14,0,$15,0,$16,0,$17,0
+        DB $18,$80,$19,$02,$1A,$E0,$1B,$01
+        DB $1C,$08,$1D,0,$1E,0,$1F,0,$20,$E8,$21,0,$22,0,$23,0
+Geom640GradientEnd:
 Geom640Circle:
         DB $02,$00,$0E,$80,$0F,$02,$14,24,$15,0,$16,80,$17,0
         DB $18,58,$19,0,$1C,$F0,$1D,0,$1E,0,$1F,0
@@ -1614,7 +1625,7 @@ Geom640ClipLeft:
         DB $20,180,$21,0,$22,100,$23,0,$1C,$FF,$1D,0,$1E,0,$1F,0
 Geom640ClipLeftEnd:
 Geom640ClipRight:
-        DB $02,$00,$0E,$80,$0F,$02,$14,560,$15,1,$16,130,$17,0
+        DB $02,$00,$0E,$80,$0F,$02,$14,48,$15,2,$16,130,$17,0
         DB $20,80,$21,3,$22,130,$23,0,$1C,$FF,$1D,0,$1E,0,$1F,0
 Geom640ClipRightEnd:
 Geom640ClipTop:
@@ -1622,8 +1633,8 @@ Geom640ClipTop:
         DB $20,320,$21,0,$22,180,$23,0,$1C,$FF,$1D,0,$1E,0,$1F,0
 Geom640ClipTopEnd:
 Geom640ClipBottom:
-        DB $02,$00,$0E,$80,$0F,$02,$14,420,$15,0,$16,420,$17,1
-        DB $20,420,$21,0,$22,180,$23,3,$1C,$FF,$1D,0,$1E,0,$1F,0
+        DB $02,$00,$0E,$80,$0F,$02,$14,164,$15,1,$16,164,$17,1
+        DB $20,164,$21,1,$22,180,$23,3,$1C,$FF,$1D,0,$1E,0,$1F,0
 Geom640ClipBottomEnd:
 
 SceneTextSmall:  DEFM "P137 GEOMETRY / 256 COLOURS",0
