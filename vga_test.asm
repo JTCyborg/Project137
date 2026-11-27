@@ -87,6 +87,10 @@ VgaTestEntry:
 
         CALL    RunPackedModeSweep
 
+        CALL    Run2DAcceleratorTest
+        OR      A
+        JR      NZ,AccelTestFailed
+
         LD      HL,MsgReady
         CALL    DebugPrint
 
@@ -336,6 +340,171 @@ PackedPaletteFailed:
         CALL    SpectrumShowDacFail
         CALL    WaitSpace
         RET
+
+; -------------------------------------------------------------------------
+; Project131-compatible 2D accelerator smoke test.
+; Uses 320x200x8bpp so the complete 64,000-byte framebuffer is in banks 0..3.
+; Tests solid fill, VRAM-to-VRAM BitBLT, Bresenham line and status/readback.
+; Returns A=0 on success, A=1 on failure.
+; -------------------------------------------------------------------------
+Run2DAcceleratorTest:
+        LD      HL,Msg2DStart
+        CALL    DebugPrint
+        CALL    SpectrumShow2DStart
+
+        ; Select 320x200x8bpp.
+        LD      A,320&255
+        LD      (ModeXLo),A
+        LD      A,320>>8
+        LD      (ModeXHi),A
+        LD      A,200&255
+        LD      (ModeYLo),A
+        XOR     A
+        LD      (ModeYHi),A
+        CALL    ConfigureCurrentMode
+
+        ; SOLID FILL: destination (20,20), 100x60, colour E3h.
+        LD      HL,AccelFillRegs
+        LD      A,AccelFillRegsEnd-AccelFillRegs
+        CALL    WriteAccelRegisterTable
+        LD      A,0
+        LD      E,1
+        CALL    WriteAccelRegister
+        CALL    CheckAccelDone
+        OR      A
+        RET     NZ
+
+        ; BITBLT: copy the filled rectangle to (140,20).
+        LD      HL,AccelBlitRegs
+        LD      A,AccelBlitRegsEnd-AccelBlitRegs
+        CALL    WriteAccelRegisterTable
+        LD      A,0
+        LD      E,2
+        CALL    WriteAccelRegister
+        CALL    CheckAccelDone
+        OR      A
+        RET     NZ
+
+        ; LINE: draw from (0,0) to (319,199), colour FFh.
+        LD      HL,AccelLineRegs
+        LD      A,AccelLineRegsEnd-AccelLineRegs
+        CALL    WriteAccelRegisterTable
+        LD      A,0
+        LD      E,3
+        CALL    WriteAccelRegister
+        CALL    CheckAccelDone
+        OR      A
+        RET     NZ
+
+        ; Read back the source and copied destination pixels in bank 0.
+        XOR     A
+        LD      BC,$03DF
+        OUT     (C),A
+        LD      HL,$D914             ; 20*320 + 20 + C000h
+        LD      A,(HL)
+        CP      $E3
+        JR      NZ,AccelReadbackFail
+        LD      HL,$D98C             ; 20*320 + 140 + C000h
+        LD      A,(HL)
+        CP      $E3
+        JR      NZ,AccelReadbackFail
+
+        ; The final line pixel is linear offset 63999 = bank 3:3A00? 
+        ; Bank 3 aperture address = C000h + (63999 - 49152) = F9FFh.
+        LD      A,3
+        LD      BC,$03DF
+        OUT     (C),A
+        LD      HL,$F9FF
+        LD      A,(HL)
+        CP      $FF
+        JR      NZ,AccelReadbackFail
+
+        LD      HL,Msg2DPass
+        CALL    DebugPrint
+        CALL    SpectrumShow2DPass
+        CALL    WaitSpace
+        XOR     A
+        RET
+
+AccelReadbackFail:
+        LD      HL,Msg2DReadbackFail
+        CALL    DebugPrint
+        CALL    SpectrumShow2DFail
+        CALL    WaitSpace
+        LD      A,1
+        RET
+
+; HL points to register/value pairs; A is the byte count.
+WriteAccelRegisterTable:
+        LD      (AccelPairCount),A
+WriteAccelRegisterTableLoop:
+        LD      A,(HL)
+        INC     HL
+        LD      E,(HL)
+        INC     HL
+        PUSH    HL
+        CALL    WriteAccelRegister
+        POP     HL
+        LD      A,(AccelPairCount)
+        SUB     2
+        LD      (AccelPairCount),A
+        JR      NZ,WriteAccelRegisterTableLoop
+        RET
+
+; A = accelerator register index, E = value.
+WriteAccelRegister:
+        LD      BC,$03E2
+        OUT     (C),A
+        LD      A,E
+        INC     C
+        OUT     (C),A
+        RET
+
+; Returns A=0 when status register reports DONE (1), otherwise A=1.
+CheckAccelDone:
+        LD      BC,$03E2
+        LD      A,1
+        OUT     (C),A
+        INC     C
+        IN      A,(C)
+        CP      1
+        RET     Z
+        LD      A,1
+        RET
+
+; Register tables: index,value pairs. All addresses are byte offsets in VRAM.
+AccelFillRegs:
+        DB $02,$00                 ; ROP COPY
+        DB $08,$00,$09,$00,$0A,$00,$0B,$00 ; destination base = 0
+        DB $0E,$40,$0F,$01         ; destination pitch = 320
+        DB $14,20,$15,0,$16,20,$17,0
+        DB $18,100,$19,0,$1A,60,$1B,0
+        DB $1C,$E3,$1D,0,$1E,0,$1F,0
+AccelFillRegsEnd:
+
+AccelBlitRegs:
+        DB $02,$00
+        DB $0C,$40,$0D,$01         ; source pitch = 320
+        DB $0E,$40,$0F,$01         ; destination pitch = 320
+        DB $10,20,$11,0,$12,20,$13,0
+        DB $14,140,$15,0,$16,20,$17,0
+        DB $18,100,$19,0,$1A,60,$1B,0
+AccelBlitRegsEnd:
+
+AccelLineRegs:
+        DB $02,$00
+        DB $0E,$40,$0F,$01         ; destination pitch = 320
+        DB $14,0,$15,0,$16,0,$17,0
+        DB $1C,$FF,$1D,0,$1E,0,$1F,0
+        DB $20,63,$21,1,$22,199,$23,0 ; endpoint (319,199)
+AccelLineRegsEnd:
+
+AccelTestFailed:
+        LD      HL,Msg2DFail
+        CALL    DebugPrint
+AccelTestFailedIdle:
+        HALT
+        JR      AccelTestFailedIdle
 
 ; Re-apply the currently selected packed-pixel 8-bpp resolution.
 ConfigureCurrentMode:
@@ -712,6 +881,34 @@ DacVerifyFailed:
         LD      A,1
         RET
 
+SpectrumShow2DStart:
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        LD      HL,Screen2DHeading
+        CALL    SpectrumPrint
+        LD      HL,Screen2DRunning
+        CALL    SpectrumPrint
+        RET
+SpectrumShow2DPass:
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        LD      HL,Screen2DHeading
+        CALL    SpectrumPrint
+        LD      HL,Screen2DPassed
+        CALL    SpectrumPrint
+        RET
+SpectrumShow2DFail:
+        CALL    SpectrumClear
+        LD      HL,ScreenTitle
+        CALL    SpectrumPrint
+        LD      HL,Screen2DHeading
+        CALL    SpectrumPrint
+        LD      HL,Screen2DFailed
+        CALL    SpectrumPrint
+        RET
+
 SpectrumShowDacStart:
         CALL    SpectrumClear
         LD      HL,ScreenTitle
@@ -1016,6 +1213,7 @@ DebugPrint:
         JR      DebugPrint
 
 CurrentBank: DB 0
+AccelPairCount: DB 0
 
 
 ModeLabelPtr: DW 0
@@ -1121,6 +1319,10 @@ MsgSweepStart:   DEFM "VGA RESOLUTION/PALETTE MATRIX START",13,10,0
 MsgModePrefix:   DEFM "MODE ",0
 MsgBppSuffix:    DEFM " BPP - INDEXED DAC PALETTE",13,10,0
 MsgSweepDone:    DEFM "ALL RESOLUTIONS AND PALETTES DONE",13,10,0
+Msg2DStart:       DEFM "2D ENGINE: FILL / BITBLT / LINE",13,10,0
+Msg2DPass:        DEFM "2D ENGINE PASS: FILL BITBLT LINE READBACK",13,10,0
+Msg2DFail:        DEFM "2D ENGINE COMMAND FAILED",13,10,0
+Msg2DReadbackFail: DEFM "2D ENGINE VRAM READBACK FAIL",13,10,0
 MsgPaletteLevel: DEFM "PALETTE LEVEL ",0
 MsgPaletteSuffix: DEFM " (2/4/16/256 COLOR GRADIENT)",13,10,0
 MsgPalettePass:  DEFM "DAC READBACK PASS",13,10,0
@@ -1142,6 +1344,10 @@ ScreenWriteRunning: DEFM "STATUS: WRITING - PLEASE WAIT",13,13,0
 ScreenWritePassed: DEFM "STATUS: WRITE COMPLETE",13,13,0
 ScreenNextHint: DEFM "PRESS SPACE FOR NEXT TEST",13,"WAITING FOR SPACE...",0
 ScreenAllDone: DEFM "9 RESOLUTIONS x 4 PALETTES",13,13,"TEST COMPLETE",0
+Screen2DHeading: DEFM "VGA 2D ACCELERATOR TEST",13,13,0
+Screen2DRunning: DEFM "SOLID FILL: 100x60",13,"BITBLT: 100x60",13,"LINE: 0,0 TO 319,199",13,"STATUS: RUNNING",0
+Screen2DPassed: DEFM "SOLID FILL: PASS",13,"BITBLT: PASS",13,"LINE: PASS",13,"VRAM READBACK: PASS",13,13,"PRESS SPACE",0
+Screen2DFailed: DEFM "2D ACCELERATOR TEST FAILED",13,"CHECK PORTS 3E2h / 3E3h",0
 ScreenDacHeading: DEFM "INDEXED VGA PALETTE TEST",13,13,0
 ScreenDacWriting: DEFM "PALETTE: 2/4/16/256 COLORS",13,"PATTERN: HORIZONTAL HUE GRADIENT",13,"STATUS: PROGRAMMING + READBACK",0
 ScreenDacPassed: DEFM "PALETTE: 256 RGB COLORS",13,"DAC READBACK: PASS (768 BYTES)",0
