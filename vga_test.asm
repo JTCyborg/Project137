@@ -765,9 +765,9 @@ SceneRunCommand:
         LD      (SceneCommand+1),A
         LD      A,(SceneCommand)
         CALL    WriteAccelRegisterTable
-        LD      A,0
         LD      A,(SceneCommand+1)
         LD      E,A
+        LD      A,0
         CALL    WriteAccelRegister
         JP      CheckAccelDone
 
