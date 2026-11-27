@@ -602,11 +602,11 @@ Run2DAcceleratorTest:
         LD      HL,$D914             ; 20*320 + 20 + C000h
         LD      A,(HL)
         CP      $E3
-        JR      NZ,AccelReadbackFail
+        JP      NZ,AccelReadbackFail
         LD      HL,$D98C             ; 20*320 + 140 + C000h
         LD      A,(HL)
         CP      $E3
-        JR      NZ,AccelReadbackFail
+        JP      NZ,AccelReadbackFail
 
         ; The final line pixel is linear offset 63999 = bank 3:3A00? 
         ; Bank 3 aperture address = C000h + (63999 - 49152) = F9FFh.
@@ -616,7 +616,7 @@ Run2DAcceleratorTest:
         LD      HL,$F9FF
         LD      A,(HL)
         CP      $FF
-        JR      NZ,AccelReadbackFail
+        JP      NZ,AccelReadbackFail
 
         LD      HL,Msg2DPass
         CALL    DebugPrint
