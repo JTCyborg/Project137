@@ -89,7 +89,7 @@ VgaTestEntry:
 
         CALL    Run2DAcceleratorTest
         OR      A
-        JR      NZ,AccelTestFailed
+        JP      NZ,AccelTestFailed
 
         LD      HL,MsgReady
         CALL    DebugPrint
@@ -468,7 +468,10 @@ CheckAccelDone:
         INC     C
         IN      A,(C)
         CP      1
-        RET     Z
+        JR      NZ,CheckAccelFailed
+        XOR     A
+        RET
+CheckAccelFailed:
         LD      A,1
         RET
 
