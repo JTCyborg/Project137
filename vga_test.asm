@@ -424,15 +424,15 @@ Run2DGradientTest:
         LD      HL,$C000
         LD      A,(HL)
         OR      A
-        JR      NZ,Run2DGradientReadbackFailed
+        JP      NZ,Run2DGradientReadbackFailed
         LD      HL,$C0A0
         LD      A,(HL)
         CP      $80
-        JR      NZ,Run2DGradientReadbackFailed
+        JP      NZ,Run2DGradientReadbackFailed
         LD      HL,$C13F
         LD      A,(HL)
         CP      $FF
-        JR      NZ,Run2DGradientReadbackFailed
+        JP      NZ,Run2DGradientReadbackFailed
 
         ; Verify the first and last pixels of the final scanline.
         ; Linear offsets 63680 and 63999 are in bank 3.
@@ -442,11 +442,11 @@ Run2DGradientTest:
         LD      HL,$F8C0             ; bank 3 + offset 63680
         LD      A,(HL)
         OR      A
-        JR      NZ,Run2DGradientReadbackFailed
+        JP      NZ,Run2DGradientReadbackFailed
         LD      HL,$F9FF             ; bank 3 + offset 63999
         LD      A,(HL)
         CP      $FF
-        JR      NZ,Run2DGradientReadbackFailed
+        JP      NZ,Run2DGradientReadbackFailed
 
         LD      HL,Msg2DGradientPass
         CALL    DebugPrint
