@@ -699,18 +699,6 @@ RunGeometryTextScene:
         CALL    SceneRunCommand
         OR      A
         RET     NZ
-        LD      HL,SceneLine04
-        LD      A,SceneLine04End-SceneLine04
-        LD      E,3
-        CALL    SceneRunCommand
-        OR      A
-        RET     NZ
-        LD      HL,SceneLine05
-        LD      A,SceneLine05End-SceneLine05
-        LD      E,3
-        CALL    SceneRunCommand
-        OR      A
-        RET     NZ
         LD      HL,SceneOctagon01
         LD      A,SceneOctagon01End-SceneOctagon01
         LD      E,3
@@ -1483,26 +1471,19 @@ SceneRectBlue:
         DB $14,168,$15,0,$16,36,$17,0,$18,56,$19,0,$1A,28,$1B,0
         DB $1C,$D5,$1D,0,$1E,0,$1F,0
 SceneRectBlueEnd:
+; Separate triangle below the rectangles and above the medium text.
 SceneLine01:
-        DB $02,$00,$0E,$40,$0F,$01,$14,20,$15,0,$16,160,$17,0
-        DB $1C,$FF,$1D,0,$1E,0,$1F,0,$20,40,$21,0,$22,100,$23,0
+        DB $02,$00,$0E,$40,$0F,$01,$14,20,$15,0,$16,112,$17,0
+        DB $1C,$FF,$1D,0,$1E,0,$1F,0,$20,90,$21,0,$22,80,$23,0
 SceneLine01End:
 SceneLine02:
-        DB $02,$00,$0E,$40,$0F,$01,$14,160,$15,0,$16,100,$17,0
-        DB $1C,$FC,$1D,0,$1E,0,$1F,0,$20,20,$21,0,$22,100,$23,0
+        DB $02,$00,$0E,$40,$0F,$01,$14,90,$15,0,$16,80,$17,0
+        DB $1C,$FC,$1D,0,$1E,0,$1F,0,$20,160,$21,0,$22,112,$23,0
 SceneLine02End:
 SceneLine03:
-        DB $02,$00,$0E,$40,$0F,$01,$14,20,$15,0,$16,100,$17,0
-        DB $1C,$F0,$1D,0,$1E,0,$1F,0,$20,160,$21,0,$22,100,$23,0
+        DB $02,$00,$0E,$40,$0F,$01,$14,160,$15,0,$16,112,$17,0
+        DB $1C,$F0,$1D,0,$1E,0,$1F,0,$20,20,$21,0,$22,112,$23,0
 SceneLine03End:
-SceneLine04:
-        DB $02,$00,$0E,$40,$0F,$01,$14,24,$15,0,$16,36,$17,0
-        DB $1C,$FF,$1D,0,$1E,0,$1F,0,$20,80,$21,0,$22,64,$23,0
-SceneLine04End:
-SceneLine05:
-        DB $02,$00,$0E,$40,$0F,$01,$14,96,$15,0,$16,36,$17,0
-        DB $1C,$FF,$1D,0,$1E,0,$1F,0,$20,152,$21,0,$22,64,$23,0
-SceneLine05End:
 SceneOctagon01:
         DB $02,$00,$0E,$40,$0F,$01,$14,4,$15,1,$16,30,$17,0
         DB $1C,$FF,$1D,0,$1E,0,$1F,0,$20,20,$21,1,$22,36,$23,0
