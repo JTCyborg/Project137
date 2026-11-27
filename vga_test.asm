@@ -344,6 +344,50 @@ PackedPaletteFailed:
         CALL    WaitSpace
         RET
 
+; Initialize only the entries used by the 2D smoke test.
+; DAC components are six-bit values. Index 01 = blue, E3 = orange, FF = white.
+Program2DTestPalette:
+        LD      BC,$03C8
+        XOR     A
+        OUT     (C),A
+        LD      BC,$03C9
+        XOR     A
+        OUT     (C),A
+        OUT     (C),A
+        OUT     (C),A
+
+        LD      BC,$03C8
+        LD      A,1
+        OUT     (C),A
+        LD      BC,$03C9
+        LD      A,$00
+        OUT     (C),A
+        LD      A,$00
+        OUT     (C),A
+        LD      A,$3F
+        OUT     (C),A
+
+        LD      BC,$03C8
+        LD      A,$E3
+        OUT     (C),A
+        LD      BC,$03C9
+        LD      A,$3F
+        OUT     (C),A
+        LD      A,$20
+        OUT     (C),A
+        XOR     A
+        OUT     (C),A
+
+        LD      BC,$03C8
+        LD      A,$FF
+        OUT     (C),A
+        LD      BC,$03C9
+        LD      A,$3F
+        OUT     (C),A
+        OUT     (C),A
+        OUT     (C),A
+        RET
+
 ; -------------------------------------------------------------------------
 ; Project131-compatible 2D accelerator smoke test.
 ; Uses 320x200x8bpp so the complete 64,000-byte framebuffer is in banks 0..3.
@@ -354,6 +398,11 @@ Run2DAcceleratorTest:
         LD      HL,Msg2DStart
         CALL    DebugPrint
         CALL    SpectrumShow2DStart
+
+        ; The adapter powers up with a zeroed DAC. Program visible colours
+        ; before the first 8-bpp test, then restore VBE mode (DAC writes
+        ; switch the adapter to legacy software mode).
+        CALL    Program2DTestPalette
 
         ; Select 320x200x8bpp.
         LD      A,320&255
