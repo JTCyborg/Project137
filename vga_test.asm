@@ -659,7 +659,7 @@ RunTextModeTest:
         ; The adapter must derive text geometry from these registers;
         ; the renderer must not invent a default column count.
         LD      HL,TextCrtcMode3
-        LD      D,19
+        LD      D,24
         LD      BC,$03D4
 TextCrtcWrite:
         LD      A,(HL)
@@ -672,6 +672,14 @@ TextCrtcWrite:
         DEC     C
         DEC     D
         JR      NZ,TextCrtcWrite
+
+        ; Select 9-dot VGA text characters (Sequencer Clocking Mode bit 0 = 0).
+        LD      BC,$03C4
+        LD      A,1
+        OUT     (C),A
+        INC     C
+        XOR     A
+        OUT     (C),A
 
         ; Select legacy VGA text mode: sequencer memory mode 06h,
         ; graphics-controller misc register 0Eh (B8000 text mapping).
