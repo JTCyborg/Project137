@@ -397,9 +397,9 @@ PaletteConfigFound:
         LD      (PaletteStride+1),A
         RET
 
-; Program the selected number of DAC entries from the full RGB332 ramp.
+; Program the selected number of DAC entries sampled from the 256-step HSV hue ramp.
 ProgramDacPalette:
-        LD      HL,Dac332Palette
+        LD      HL,DacHuePalette
         LD      DE,(PaletteStride)
         XOR     A
         LD      (DacIndex),A
@@ -436,7 +436,7 @@ DecPaletteRemaining:
         RET
 
 ; Fill the framebuffer with a full-width horizontal hue gradient.
-; Palette entries are distributed evenly from the first to last hue.
+; Palette entries are sampled evenly from the first to last hue.
 ; A 16-bit accumulator spreads palette transitions uniformly across each row.
 FillModeVRAM:
         XOR     A
@@ -1067,7 +1067,7 @@ PackedModeTable:
 ; Palette levels: 2, 4, 16 and 256 entries. Palette data is sequential:
 ; first 16 entries are a conventional EGA palette, then RGB332 ramp.
 PaletteConfigTable:
-        ; Count, index mask, extra source-byte skip after each RGB triplet.
+        ; Count, index mask, extra source-byte skip after each RGB triplet in the HSV ramp.
         ; Samples include both ends of the 256-step hue ramp.
         DW 2
         DB 1
@@ -1147,7 +1147,7 @@ ScreenDacWriting: DEFM "PALETTE: 2/4/16/256 COLORS",13,"PATTERN: HORIZONTAL HUE 
 ScreenDacPassed: DEFM "PALETTE: 256 RGB COLORS",13,"DAC READBACK: PASS (768 BYTES)",0
 ScreenDacFailed: DEFM "DAC PALETTE READBACK: FAIL",13,"CHECK PORTS 3C7h / 3C9h",0
 
-Dac332Palette:
+DacHuePalette:
         DB $3F,$00,$00,$3F,$01,$00,$3F,$03,$00,$3F,$04,$00,$3F,$06,$00,$3F,$07,$00,$3F,$09,$00,$3F,$0A,$00
         DB $3F,$0C,$00,$3F,$0D,$00,$3F,$0F,$00,$3F,$10,$00,$3F,$12,$00,$3F,$13,$00,$3F,$15,$00,$3F,$16,$00
         DB $3F,$18,$00,$3F,$19,$00,$3F,$1B,$00,$3F,$1C,$00,$3F,$1E,$00,$3F,$1F,$00,$3F,$20,$00,$3F,$22,$00
@@ -1180,7 +1180,7 @@ Dac332Palette:
         DB $3F,$00,$23,$3F,$00,$22,$3F,$00,$20,$3F,$00,$1F,$3F,$00,$1E,$3F,$00,$1C,$3F,$00,$1B,$3F,$00,$19
         DB $3F,$00,$18,$3F,$00,$16,$3F,$00,$15,$3F,$00,$13,$3F,$00,$12,$3F,$00,$10,$3F,$00,$0F,$3F,$00,$0D
         DB $3F,$00,$0C,$3F,$00,$0A,$3F,$00,$09,$3F,$00,$07,$3F,$00,$06,$3F,$00,$04,$3F,$00,$03,$3F,$00,$01
-Dac332PaletteEnd:
+DacHuePaletteEnd:
 
 ; Exact 768-byte font from Project112/src/font88.bin.
 Font88_132:
