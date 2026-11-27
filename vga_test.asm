@@ -631,6 +631,30 @@ Run2DAcceleratorTest:
         CALL    RunTextModeTest
         RET
 
+; Restore the standard 16-colour VGA/EGA DAC palette (6-bit RGB).
+; This keeps the text-mode colour test independent of the preceding
+; programmable 256-entry gradient test.
+ProgramStandardEgaPalette:
+        LD      BC,$03C8
+        XOR     A
+        OUT     (C),A
+        LD      BC,$03C9
+        LD      HL,StandardEgaPalette
+        LD      B,48
+StandardEgaPaletteWrite:
+        LD      A,(HL)
+        OUT     (C),A
+        INC     HL
+        DJNZ    StandardEgaPaletteWrite
+        RET
+
+StandardEgaPalette:
+        ; RGB triples, DAC range 00h..3Fh.
+        DB $00,$00,$00, $00,$00,$2A, $00,$2A,$00, $00,$2A,$2A
+        DB $2A,$00,$00, $2A,$00,$2A, $2A,$15,$00, $2A,$2A,$2A
+        DB $15,$15,$15, $15,$15,$3F, $15,$3F,$15, $15,$3F,$3F
+        DB $3F,$15,$15, $3F,$15,$3F, $3F,$3F,$15, $3F,$3F,$3F
+
 ; IBM VGA mode 3 CRTC timing. Indexed register/value pairs.
 ; CR11 is written with bit 7 clear to unlock vertical timing registers.
 TextCrtcMode3:
@@ -653,6 +677,11 @@ RunTextModeTest:
         LD      HL,MsgTextStart
         CALL    DebugPrint
         CALL    SpectrumShowTextStart
+
+        ; The preceding 256-colour gradient test leaves a custom DAC ramp.
+        ; Restore the standard 16-colour VGA palette before testing text
+        ; attributes, which are expected to use the conventional EGA colours.
+        CALL    ProgramStandardEgaPalette
 
         ; Program the VGA CRTC for a real 80-column, 25-row mode 3
         ; timing (720x400, 9-dot characters, 16 scanlines per row).
