@@ -534,7 +534,7 @@ ModePatternAdvanceDone:
         LD      B,A
         LD      A,(ModeBankCount)
         CP      B
-        JR      NZ,ModeFillBank
+        JP      NZ,ModeFillBank
         RET
 
 ; Read back every programmed DAC entry, including all RGB components.
