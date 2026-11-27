@@ -916,8 +916,8 @@ TextClearBottomChars:
         INC     C
         LD      A,2
         OUT     (C),A
-        LD      HL,$C780
-        LD      BC,80
+        LD      HL,$CF00
+        LD      BC,160
         LD      D,$07
 TextClearBottomAttrs:
         LD      (HL),D
@@ -986,13 +986,13 @@ TextClearBottomAttrs:
         INC     C
         LD      A,1
         OUT     (C),A
-        LD      A,($C190)
+        LD      A,($C320)
         CP      $10
         JP      NZ,TextModeFailed
         LD      A,($C32E)
         CP      $17
         JP      NZ,TextModeFailed
-        LD      A,($C19F)
+        LD      A,($C33E)
         CP      $1F
         JP      NZ,TextModeFailed
 
@@ -1054,6 +1054,7 @@ TextWriteColorRamp:
 TextColorChars:
         LD      (HL),A
         INC     HL
+        INC     HL
         INC     A
         DJNZ    TextColorChars
 
@@ -1063,11 +1064,12 @@ TextColorChars:
         INC     C
         LD      A,2
         OUT     (C),A
-        LD      HL,$C1E0
+        LD      HL,$C3C0
         LD      B,16
         LD      A,$10
 TextColorAttrs:
         LD      (HL),A
+        INC     HL
         INC     HL
         INC     A
         DJNZ    TextColorAttrs
