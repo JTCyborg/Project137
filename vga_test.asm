@@ -296,11 +296,14 @@ PackedPaletteNext:
         LD      HL,MsgPaletteSuffix
         CALL    DebugPrint
 
-        CALL    FillModeVRAM
+        ; Verify the DAC before touching the framebuffer. This keeps all
+        ; DAC read-index/component activity out of the post-render phase.
         CALL    SelectPaletteParameters
         CALL    VerifyDacPalette
         OR      A
         JR      NZ,PackedPaletteFailed
+
+        CALL    FillModeVRAM
 
         LD      HL,MsgPalettePass
         CALL    DebugPrint
