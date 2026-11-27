@@ -451,7 +451,7 @@ Run2DGradientWidthReady:
         CALL    WriteAccelRegister
         CALL    CheckAccelDone
         OR      A
-        JR      NZ,Run2DGradientFailed
+        JP      NZ,Run2DGradientFailed
 
         ; Advance X by the just-painted band width.
         LD      A,(GradientIndex)
