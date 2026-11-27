@@ -430,13 +430,16 @@ DecPaletteRemaining:
         OR      L
         RET
 
-; Fill exactly the active 8-bpp framebuffer. Each byte is one palette
-; index; use only initialized EGA palette entries 0..7.
+; Fill exactly the active 8-bpp framebuffer. Display each palette entry
+; as an eight-pixel-wide vertical colour bar, cycling through the selected
+; palette size (2, 4, 16, or 256 entries).
 ; Only banks containing visible pixels are touched.
 FillModeVRAM:
         XOR     A
         LD      (CurrentBank),A
         LD      (DacIndex),A
+        LD      A,0
+        LD      (PatternCounter),A
 ModeFillBank:
         LD      A,(CurrentBank)
         LD      BC,$03DF
@@ -458,11 +461,22 @@ ModeFillByte:
         LD      A,(DacIndex)
         LD      (HL),A
         INC     HL
+        LD      A,(PatternCounter)
+        INC     A
+        CP      8
+        JR      NZ,ModePatternHold
+        XOR     A
+        LD      (PatternCounter),A
+        LD      A,(DacIndex)
         INC     A
         LD      E,A
         LD      A,(PaletteMask)
         AND     E
         LD      (DacIndex),A
+        JR      ModePatternAdvanceDone
+ModePatternHold:
+        LD      (PatternCounter),A
+ModePatternAdvanceDone:
         DEC     BC
         LD      A,B
         OR      C
@@ -991,6 +1005,7 @@ PaletteLevel: DB 0
 PaletteMask: DB 0
 PaletteRemaining: DW 0
 PaletteStride: DW 0
+PatternCounter: DB 0
 
 ; Sixteen initialized EGA palette indices, each repeated twice.
 ; Project132 also uses EGA entry 15 as white for its on-screen banner.
@@ -1014,17 +1029,18 @@ PackedModeTable:
         DB 1024&255,1024>>8,768&255,768>>8,8,48,0,64
 
 
-; Palette levels: 2, 4, 16 and 256 entries. Stride skips through RGB332.
+; Palette levels: 2, 4, 16 and 256 entries. Palette data is sequential:
+; first 16 entries are a conventional EGA palette, then RGB332 ramp.
 PaletteConfigTable:
         DW 2
         DB 1
-        DW 381
+        DW 0
         DW 4
         DB 3
-        DW 189
+        DW 0
         DW 16
         DB 15
-        DW 45
+        DW 0
         DW 256
         DB 255
         DW 0
@@ -1069,7 +1085,7 @@ MsgModePrefix:   DEFM "MODE ",0
 MsgBppSuffix:    DEFM " BPP - INDEXED DAC PALETTE",13,10,0
 MsgSweepDone:    DEFM "ALL RESOLUTIONS AND PALETTES DONE",13,10,0
 MsgPaletteLevel: DEFM "PALETTE LEVEL ",0
-MsgPaletteSuffix: DEFM " (2/4/16/256 COLORS)",13,10,0
+MsgPaletteSuffix: DEFM " (2/4/16/256 COLORS - 8PX BARS)",13,10,0
 MsgPalettePass:  DEFM "DAC READBACK PASS",13,10,0
 MsgPaletteFail:  DEFM "DAC READBACK FAIL",13,10,0
 ; Retained for the standalone legacy DAC routine below (not called by main).
@@ -1090,12 +1106,12 @@ ScreenWritePassed: DEFM "STATUS: WRITE COMPLETE",13,13,0
 ScreenNextHint: DEFM "PRESS SPACE FOR NEXT TEST",13,"WAITING FOR SPACE...",0
 ScreenAllDone: DEFM "9 RESOLUTIONS x 4 PALETTES",13,13,"TEST COMPLETE",0
 ScreenDacHeading: DEFM "INDEXED VGA PALETTE TEST",13,13,0
-ScreenDacWriting: DEFM "PALETTE: RGB332 / 256 ENTRIES",13,"FRAMEBUFFER: 320x200 / 8 BPP",13,"STATUS: PROGRAMMING + READBACK",0
+ScreenDacWriting: DEFM "PALETTE: SELECTED COLOR COUNT",13,"PATTERN: 8-PIXEL COLOR BARS",13,"STATUS: PROGRAMMING + READBACK",0
 ScreenDacPassed: DEFM "PALETTE: 256 RGB COLORS",13,"DAC READBACK: PASS (768 BYTES)",0
 ScreenDacFailed: DEFM "DAC PALETTE READBACK: FAIL",13,"CHECK PORTS 3C7h / 3C9h",0
 
 Dac332Palette:
-        DB $00,$00,$00,$00,$00,$15,$00,$00,$2A,$00,$00,$3F,$00,$09,$00,$00
+        DB $00,$00,$00,$3F,$3F,$3F,$3F,$00,$00,$00,$3F,$00,$00,$00,$2A,$00,$2A,$2A,$2A,$00,$2A,$2A,$15,$00,$15,$15,$15,$15,$15,$3F,$15,$3F,$15,$15,$3F,$3F,$3F,$15,$15,$3F,$15,$3F,$3F,$3F,$15,$3F,$3F,$3F
         DB $09,$15,$00,$09,$2A,$00,$09,$3F,$00,$12,$00,$00,$12,$15,$00,$12
         DB $2A,$00,$12,$3F,$00,$1B,$00,$00,$1B,$15,$00,$1B,$2A,$00,$1B,$3F
         DB $00,$24,$00,$00,$24,$15,$00,$24,$2A,$00,$24,$3F,$00,$2D,$00,$00
