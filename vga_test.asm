@@ -640,12 +640,13 @@ ProgramStandardEgaPalette:
         OUT     (C),A
         LD      BC,$03C9
         LD      HL,StandardEgaPalette
-        LD      B,48
+        LD      D,48
 StandardEgaPaletteWrite:
         LD      A,(HL)
         OUT     (C),A
         INC     HL
-        DJNZ    StandardEgaPaletteWrite
+        DEC     D
+        JR      NZ,StandardEgaPaletteWrite
         RET
 
 StandardEgaPalette:
