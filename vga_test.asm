@@ -631,6 +631,18 @@ Run2DAcceleratorTest:
         CALL    RunTextModeTest
         RET
 
+; IBM VGA mode 3 CRTC timing. Indexed register/value pairs.
+; CR11 is written with bit 7 clear to unlock vertical timing registers.
+TextCrtcMode3:
+        ; Unlock protected CRTC registers before changing horizontal timing.
+        DB $11,$0E
+        DB $00,$5F, $01,$4F, $02,$50, $03,$82
+        DB $04,$54, $05,$80, $06,$BF, $07,$1F
+        DB $09,$0F, $0A,$0D, $0B,$0E, $0C,$00
+        DB $0D,$00, $0E,$00, $0F,$00, $10,$9C
+        DB $12,$8F, $13,$28, $14,$00, $15,$96
+        DB $16,$B9, $17,$A3, $18,$FF
+
 ; -------------------------------------------------------------------------
 ; VGA text-mode test: 80x25, character plane 0, attribute plane 1.
 ; Uses the adapter's bank-6 text aperture (C000h-C7CFh).
@@ -641,6 +653,25 @@ RunTextModeTest:
         LD      HL,MsgTextStart
         CALL    DebugPrint
         CALL    SpectrumShowTextStart
+
+        ; Program the VGA CRTC for a real 80-column, 25-row mode 3
+        ; timing (720x400, 9-dot characters, 16 scanlines per row).
+        ; The adapter must derive text geometry from these registers;
+        ; the renderer must not invent a default column count.
+        LD      HL,TextCrtcMode3
+        LD      D,18
+        LD      BC,$03D4
+TextCrtcWrite:
+        LD      A,(HL)
+        OUT     (C),A
+        INC     HL
+        INC     C
+        LD      A,(HL)
+        OUT     (C),A
+        INC     HL
+        DEC     C
+        DEC     D
+        JR      NZ,TextCrtcWrite
 
         ; Select legacy VGA text mode: sequencer memory mode 06h,
         ; graphics-controller misc register 0Eh (B8000 text mapping).
