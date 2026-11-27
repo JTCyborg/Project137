@@ -766,7 +766,8 @@ SceneRunCommand:
         LD      A,(SceneCommand)
         CALL    WriteAccelRegisterTable
         LD      A,0
-        LD      E,(SceneCommand+1)
+        LD      A,(SceneCommand+1)
+        LD      E,A
         CALL    WriteAccelRegister
         JP      CheckAccelDone
 
@@ -894,6 +895,10 @@ ScenePlotPixel:
         LD      D,0
         ADD     HL,DE
         LD      A,H
+        RRCA
+        RRCA
+        RRCA
+        RRCA
         RRCA
         RRCA
         AND     3
