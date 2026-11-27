@@ -382,9 +382,11 @@ PaletteConfigFound:
         LD      A,(HL)
         INC     HL
         LD      (PaletteRemaining),A
+        LD      (PaletteCount),A
         LD      A,(HL)
         INC     HL
         LD      (PaletteRemaining+1),A
+        LD      (PaletteCount+1),A
         LD      A,(HL)
         INC     HL
         LD      (PaletteMask),A
@@ -395,9 +397,9 @@ PaletteConfigFound:
         LD      (PaletteStride+1),A
         RET
 
-; Program the selected number of DAC entries from the full RGB332 ramp.
+; Program the selected number of DAC entries sampled from the 256-step HSV hue ramp.
 ProgramDacPalette:
-        LD      HL,Dac332Palette
+        LD      HL,DacHuePalette
         LD      DE,(PaletteStride)
         XOR     A
         LD      (DacIndex),A
@@ -433,24 +435,21 @@ DecPaletteRemaining:
         OR      L
         RET
 
-; Fill exactly the active 8-bpp framebuffer. Display each palette entry
-; as an eight-pixel-wide vertical colour bar, cycling through the selected
-; palette size (2, 4, 16, or 256 entries).
-; Only banks containing visible pixels are touched.
+; Fill the framebuffer with a full-width horizontal hue gradient.
+; Palette entries are sampled evenly from the first to last hue.
+; A 16-bit accumulator spreads palette transitions uniformly across each row.
 FillModeVRAM:
         XOR     A
         LD      (CurrentBank),A
         LD      (DacIndex),A
-        LD      A,0
-        LD      (PatternCounter),A
-        LD      (ModeXCounter),A
-        LD      (ModeXCounter+1),A
+        LD      HL,0
+        LD      (GradientAccumulator),HL
+        LD      (ModeXCounter),HL
 ModeFillBank:
         LD      A,(CurrentBank)
         LD      BC,$03DF
         OUT     (C),A
         LD      HL,$C000
-        LD      DE,ModePattern8
         LD      A,(CurrentBank)
         LD      B,A
         LD      A,(ModeBankCount)
@@ -466,10 +465,9 @@ ModeFillByte:
         LD      A,(DacIndex)
         LD      (HL),A
         INC     HL
-        PUSH    HL                    ; preserve framebuffer write pointer
+        PUSH    HL
 
-        ; Advance the horizontal pixel counter independently of HL, which
-        ; must continue to point into the VGA aperture for the next write.
+        ; Advance the X coordinate and detect the end of the scanline.
         LD      HL,(ModeXCounter)
         INC     HL
         LD      (ModeXCounter),HL
@@ -481,49 +479,37 @@ ModeFillByte:
         OR      A
         SBC     HL,DE
         POP     HL
-        JR      NZ,ModePatternContinue
+        JR      NZ,ModeGradientAdvance
 
-        ; Start every scanline with palette index zero.
+        ; Restart the gradient at the beginning of every scanline.
         LD      HL,0
         LD      (ModeXCounter),HL
+        LD      (GradientAccumulator),HL
         XOR     A
-        LD      (PatternCounter),A
         LD      (DacIndex),A
         JR      ModePatternAdvanceDone
 
-ModePatternContinue:
-        ; A 256-entry palette cannot fit as eight-pixel bars. Use one
-        ; pixel per colour so all 256 DAC entries appear across the row.
-        LD      A,(PaletteMask)
-        CP      $FF
-        JR      Z,ModePatternWidthOne
-
-        ; Smaller palettes retain the wider eight-pixel bars.
-        LD      A,(PatternCounter)
-        INC     A
-        CP      8
-        JR      NZ,ModePatternHold
-        XOR     A
-        LD      (PatternCounter),A
-        JR      ModePatternAdvanceColour
-
-ModePatternWidthOne:
-        XOR     A
-        LD      (PatternCounter),A
-
-ModePatternAdvanceColour:
+ModeGradientAdvance:
+        ; Bresenham-style distribution: add palette count per pixel and
+        ; advance the DAC index whenever the accumulator reaches width.
+        LD      HL,(GradientAccumulator)
+        LD      DE,(PaletteCount)
+        ADD     HL,DE
+        LD      DE,(ModeXLo)
+        OR      A
+        SBC     HL,DE
+        JR      C,ModeGradientHold
+        LD      (GradientAccumulator),HL
         LD      A,(DacIndex)
         INC     A
-        LD      E,A
-        LD      A,(PaletteMask)
-        AND     E
         LD      (DacIndex),A
         JR      ModePatternAdvanceDone
+ModeGradientHold:
+        ADD     HL,DE
+        LD      (GradientAccumulator),HL
 
-ModePatternHold:
-        LD      (PatternCounter),A
 ModePatternAdvanceDone:
-        POP     HL                    ; restore framebuffer write pointer
+        POP     HL
         DEC     BC
         LD      A,B
         OR      C
@@ -540,7 +526,7 @@ ModePatternAdvanceDone:
 ; Read back every programmed DAC entry, including all RGB components.
 ; Return A=0 on success, A=1 on mismatch.
 VerifyDacPalette:
-        LD      HL,Dac332Palette
+        LD      HL,DacHuePalette
         LD      DE,(PaletteStride)
         XOR     A
         LD      (DacIndex),A
@@ -638,7 +624,7 @@ DacTestFailed:
         RET
 
 ProgramDac332:
-        LD      HL,Dac332Palette
+        LD      HL,DacHuePalette
         XOR     A
         LD      (DacIndex),A
 DacWriteLoop:
@@ -696,7 +682,7 @@ DacFillByte:
         RET
 
 VerifyDac332:
-        LD      HL,Dac332Palette
+        LD      HL,DacHuePalette
         XOR     A
         LD      (DacIndex),A
 DacReadLoop:
@@ -1051,8 +1037,9 @@ ModeLastBankBytes: DW 0
 PaletteLevel: DB 0
 PaletteMask: DB 0
 PaletteRemaining: DW 0
+PaletteCount: DW 0
 PaletteStride: DW 0
-PatternCounter: DB 0
+GradientAccumulator: DW 0
 ModeXCounter: DW 0
 
 ; Sixteen initialized EGA palette indices, each repeated twice.
@@ -1080,15 +1067,17 @@ PackedModeTable:
 ; Palette levels: 2, 4, 16 and 256 entries. Palette data is sequential:
 ; first 16 entries are a conventional EGA palette, then RGB332 ramp.
 PaletteConfigTable:
+        ; Count, index mask, extra source-byte skip after each RGB triplet in the HSV ramp.
+        ; Samples include both ends of the 256-step hue ramp.
         DW 2
         DB 1
-        DW 0
+        DW 762
         DW 4
         DB 3
-        DW 0
+        DW 252
         DW 16
         DB 15
-        DW 0
+        DW 48
         DW 256
         DB 255
         DW 0
@@ -1133,7 +1122,7 @@ MsgModePrefix:   DEFM "MODE ",0
 MsgBppSuffix:    DEFM " BPP - INDEXED DAC PALETTE",13,10,0
 MsgSweepDone:    DEFM "ALL RESOLUTIONS AND PALETTES DONE",13,10,0
 MsgPaletteLevel: DEFM "PALETTE LEVEL ",0
-MsgPaletteSuffix: DEFM " (2/4/16/256 COLORS - 8PX BARS)",13,10,0
+MsgPaletteSuffix: DEFM " (2/4/16/256 COLOR GRADIENT)",13,10,0
 MsgPalettePass:  DEFM "DAC READBACK PASS",13,10,0
 MsgPaletteFail:  DEFM "DAC READBACK FAIL",13,10,0
 ; Retained for the standalone legacy DAC routine below (not called by main).
@@ -1154,60 +1143,44 @@ ScreenWritePassed: DEFM "STATUS: WRITE COMPLETE",13,13,0
 ScreenNextHint: DEFM "PRESS SPACE FOR NEXT TEST",13,"WAITING FOR SPACE...",0
 ScreenAllDone: DEFM "9 RESOLUTIONS x 4 PALETTES",13,13,"TEST COMPLETE",0
 ScreenDacHeading: DEFM "INDEXED VGA PALETTE TEST",13,13,0
-ScreenDacWriting: DEFM "PALETTE: SELECTED COLOR COUNT",13,"PATTERN: 8-PIXEL COLOR BARS",13,"STATUS: PROGRAMMING + READBACK",0
+ScreenDacWriting: DEFM "PALETTE: 2/4/16/256 COLORS",13,"PATTERN: HORIZONTAL HUE GRADIENT",13,"STATUS: PROGRAMMING + READBACK",0
 ScreenDacPassed: DEFM "PALETTE: 256 RGB COLORS",13,"DAC READBACK: PASS (768 BYTES)",0
 ScreenDacFailed: DEFM "DAC PALETTE READBACK: FAIL",13,"CHECK PORTS 3C7h / 3C9h",0
 
-Dac332Palette:
-        DB $00,$00,$00,$3F,$3F,$3F,$3F,$00,$00,$00,$3F,$00,$00,$00,$2A,$00,$2A,$2A,$2A,$00,$2A,$2A,$15,$00,$15,$15,$15,$15,$15,$3F,$15,$3F,$15,$15,$3F,$3F,$3F,$15,$15,$3F,$15,$3F,$3F,$3F,$15,$3F,$3F,$3F
-        DB $09,$15,$00,$09,$2A,$00,$09,$3F,$00,$12,$00,$00,$12,$15,$00,$12
-        DB $2A,$00,$12,$3F,$00,$1B,$00,$00,$1B,$15,$00,$1B,$2A,$00,$1B,$3F
-        DB $00,$24,$00,$00,$24,$15,$00,$24,$2A,$00,$24,$3F,$00,$2D,$00,$00
-        DB $2D,$15,$00,$2D,$2A,$00,$2D,$3F,$00,$36,$00,$00,$36,$15,$00,$36
-        DB $2A,$00,$36,$3F,$00,$3F,$00,$00,$3F,$15,$00,$3F,$2A,$00,$3F,$3F
-        DB $09,$00,$00,$09,$00,$15,$09,$00,$2A,$09,$00,$3F,$09,$09,$00,$09
-        DB $09,$15,$09,$09,$2A,$09,$09,$3F,$09,$12,$00,$09,$12,$15,$09,$12
-        DB $2A,$09,$12,$3F,$09,$1B,$00,$09,$1B,$15,$09,$1B,$2A,$09,$1B,$3F
-        DB $09,$24,$00,$09,$24,$15,$09,$24,$2A,$09,$24,$3F,$09,$2D,$00,$09
-        DB $2D,$15,$09,$2D,$2A,$09,$2D,$3F,$09,$36,$00,$09,$36,$15,$09,$36
-        DB $2A,$09,$36,$3F,$09,$3F,$00,$09,$3F,$15,$09,$3F,$2A,$09,$3F,$3F
-        DB $12,$00,$00,$12,$00,$15,$12,$00,$2A,$12,$00,$3F,$12,$09,$00,$12
-        DB $09,$15,$12,$09,$2A,$12,$09,$3F,$12,$12,$00,$12,$12,$15,$12,$12
-        DB $2A,$12,$12,$3F,$12,$1B,$00,$12,$1B,$15,$12,$1B,$2A,$12,$1B,$3F
-        DB $12,$24,$00,$12,$24,$15,$12,$24,$2A,$12,$24,$3F,$12,$2D,$00,$12
-        DB $2D,$15,$12,$2D,$2A,$12,$2D,$3F,$12,$36,$00,$12,$36,$15,$12,$36
-        DB $2A,$12,$36,$3F,$12,$3F,$00,$12,$3F,$15,$12,$3F,$2A,$12,$3F,$3F
-        DB $1B,$00,$00,$1B,$00,$15,$1B,$00,$2A,$1B,$00,$3F,$1B,$09,$00,$1B
-        DB $09,$15,$1B,$09,$2A,$1B,$09,$3F,$1B,$12,$00,$1B,$12,$15,$1B,$12
-        DB $2A,$1B,$12,$3F,$1B,$1B,$00,$1B,$1B,$15,$1B,$1B,$2A,$1B,$1B,$3F
-        DB $1B,$24,$00,$1B,$24,$15,$1B,$24,$2A,$1B,$24,$3F,$1B,$2D,$00,$1B
-        DB $2D,$15,$1B,$2D,$2A,$1B,$2D,$3F,$1B,$36,$00,$1B,$36,$15,$1B,$36
-        DB $2A,$1B,$36,$3F,$1B,$3F,$00,$1B,$3F,$15,$1B,$3F,$2A,$1B,$3F,$3F
-        DB $24,$00,$00,$24,$00,$15,$24,$00,$2A,$24,$00,$3F,$24,$09,$00,$24
-        DB $09,$15,$24,$09,$2A,$24,$09,$3F,$24,$12,$00,$24,$12,$15,$24,$12
-        DB $2A,$24,$12,$3F,$24,$1B,$00,$24,$1B,$15,$24,$1B,$2A,$24,$1B,$3F
-        DB $24,$24,$00,$24,$24,$15,$24,$24,$2A,$24,$24,$3F,$24,$2D,$00,$24
-        DB $2D,$15,$24,$2D,$2A,$24,$2D,$3F,$24,$36,$00,$24,$36,$15,$24,$36
-        DB $2A,$24,$36,$3F,$24,$3F,$00,$24,$3F,$15,$24,$3F,$2A,$24,$3F,$3F
-        DB $2D,$00,$00,$2D,$00,$15,$2D,$00,$2A,$2D,$00,$3F,$2D,$09,$00,$2D
-        DB $09,$15,$2D,$09,$2A,$2D,$09,$3F,$2D,$12,$00,$2D,$12,$15,$2D,$12
-        DB $2A,$2D,$12,$3F,$2D,$1B,$00,$2D,$1B,$15,$2D,$1B,$2A,$2D,$1B,$3F
-        DB $2D,$24,$00,$2D,$24,$15,$2D,$24,$2A,$2D,$24,$3F,$2D,$2D,$00,$2D
-        DB $2D,$15,$2D,$2D,$2A,$2D,$2D,$3F,$2D,$36,$00,$2D,$36,$15,$2D,$36
-        DB $2A,$2D,$36,$3F,$2D,$3F,$00,$2D,$3F,$15,$2D,$3F,$2A,$2D,$3F,$3F
-        DB $36,$00,$00,$36,$00,$15,$36,$00,$2A,$36,$00,$3F,$36,$09,$00,$36
-        DB $09,$15,$36,$09,$2A,$36,$09,$3F,$36,$12,$00,$36,$12,$15,$36,$12
-        DB $2A,$36,$12,$3F,$36,$1B,$00,$36,$1B,$15,$36,$1B,$2A,$36,$1B,$3F
-        DB $36,$24,$00,$36,$24,$15,$36,$24,$2A,$36,$24,$3F,$36,$2D,$00,$36
-        DB $2D,$15,$36,$2D,$2A,$36,$2D,$3F,$36,$36,$00,$36,$36,$15,$36,$36
-        DB $2A,$36,$36,$3F,$36,$3F,$00,$36,$3F,$15,$36,$3F,$2A,$36,$3F,$3F
-        DB $3F,$00,$00,$3F,$00,$15,$3F,$00,$2A,$3F,$00,$3F,$3F,$09,$00,$3F
-        DB $09,$15,$3F,$09,$2A,$3F,$09,$3F,$3F,$12,$00,$3F,$12,$15,$3F,$12
-        DB $2A,$3F,$12,$3F,$3F,$1B,$00,$3F,$1B,$15,$3F,$1B,$2A,$3F,$1B,$3F
-        DB $3F,$24,$00,$3F,$24,$15,$3F,$24,$2A,$3F,$24,$3F,$3F,$2D,$00,$3F
-        DB $2D,$15,$3F,$2D,$2A,$3F,$2D,$3F,$3F,$36,$00,$3F,$36,$15,$3F,$36
-        DB $2A,$3F,$36,$3F,$3F,$3F,$00,$3F,$3F,$15,$3F,$3F,$2A,$3F,$3F,$3F
-Dac332PaletteEnd:
+DacHuePalette:
+        DB $3F,$00,$00,$3F,$01,$00,$3F,$03,$00,$3F,$04,$00,$3F,$06,$00,$3F,$07,$00,$3F,$09,$00,$3F,$0A,$00
+        DB $3F,$0C,$00,$3F,$0D,$00,$3F,$0F,$00,$3F,$10,$00,$3F,$12,$00,$3F,$13,$00,$3F,$15,$00,$3F,$16,$00
+        DB $3F,$18,$00,$3F,$19,$00,$3F,$1B,$00,$3F,$1C,$00,$3F,$1E,$00,$3F,$1F,$00,$3F,$20,$00,$3F,$22,$00
+        DB $3F,$23,$00,$3F,$25,$00,$3F,$26,$00,$3F,$28,$00,$3F,$29,$00,$3F,$2B,$00,$3F,$2C,$00,$3F,$2E,$00
+        DB $3F,$2F,$00,$3F,$31,$00,$3F,$32,$00,$3F,$34,$00,$3F,$35,$00,$3F,$37,$00,$3F,$38,$00,$3F,$3A,$00
+        DB $3F,$3B,$00,$3F,$3D,$00,$3F,$3E,$00,$3F,$3F,$00,$3D,$3F,$00,$3C,$3F,$00,$3A,$3F,$00,$39,$3F,$00
+        DB $37,$3F,$00,$36,$3F,$00,$34,$3F,$00,$33,$3F,$00,$31,$3F,$00,$30,$3F,$00,$2E,$3F,$00,$2D,$3F,$00
+        DB $2B,$3F,$00,$2A,$3F,$00,$28,$3F,$00,$27,$3F,$00,$25,$3F,$00,$24,$3F,$00,$22,$3F,$00,$21,$3F,$00
+        DB $20,$3F,$00,$1E,$3F,$00,$1D,$3F,$00,$1B,$3F,$00,$1A,$3F,$00,$18,$3F,$00,$17,$3F,$00,$15,$3F,$00
+        DB $14,$3F,$00,$12,$3F,$00,$11,$3F,$00,$0F,$3F,$00,$0E,$3F,$00,$0C,$3F,$00,$0B,$3F,$00,$09,$3F,$00
+        DB $08,$3F,$00,$06,$3F,$00,$05,$3F,$00,$03,$3F,$00,$02,$3F,$00,$00,$3F,$00,$00,$3F,$01,$00,$3F,$02
+        DB $00,$3F,$04,$00,$3F,$05,$00,$3F,$07,$00,$3F,$08,$00,$3F,$0A,$00,$3F,$0B,$00,$3F,$0D,$00,$3F,$0E
+        DB $00,$3F,$10,$00,$3F,$11,$00,$3F,$13,$00,$3F,$14,$00,$3F,$16,$00,$3F,$17,$00,$3F,$19,$00,$3F,$1A
+        DB $00,$3F,$1C,$00,$3F,$1D,$00,$3F,$1F,$00,$3F,$20,$00,$3F,$21,$00,$3F,$23,$00,$3F,$24,$00,$3F,$26
+        DB $00,$3F,$27,$00,$3F,$29,$00,$3F,$2A,$00,$3F,$2C,$00,$3F,$2D,$00,$3F,$2F,$00,$3F,$30,$00,$3F,$32
+        DB $00,$3F,$33,$00,$3F,$35,$00,$3F,$36,$00,$3F,$38,$00,$3F,$39,$00,$3F,$3B,$00,$3F,$3C,$00,$3F,$3E
+        DB $00,$3F,$3F,$00,$3E,$3F,$00,$3C,$3F,$00,$3B,$3F,$00,$39,$3F,$00,$38,$3F,$00,$36,$3F,$00,$35,$3F
+        DB $00,$33,$3F,$00,$32,$3F,$00,$30,$3F,$00,$2F,$3F,$00,$2D,$3F,$00,$2C,$3F,$00,$2A,$3F,$00,$29,$3F
+        DB $00,$27,$3F,$00,$26,$3F,$00,$24,$3F,$00,$23,$3F,$00,$21,$3F,$00,$20,$3F,$00,$1F,$3F,$00,$1D,$3F
+        DB $00,$1C,$3F,$00,$1A,$3F,$00,$19,$3F,$00,$17,$3F,$00,$16,$3F,$00,$14,$3F,$00,$13,$3F,$00,$11,$3F
+        DB $00,$10,$3F,$00,$0E,$3F,$00,$0D,$3F,$00,$0B,$3F,$00,$0A,$3F,$00,$08,$3F,$00,$07,$3F,$00,$05,$3F
+        DB $00,$04,$3F,$00,$02,$3F,$00,$01,$3F,$00,$00,$3F,$02,$00,$3F,$03,$00,$3F,$05,$00,$3F,$06,$00,$3F
+        DB $08,$00,$3F,$09,$00,$3F,$0B,$00,$3F,$0C,$00,$3F,$0E,$00,$3F,$0F,$00,$3F,$11,$00,$3F,$12,$00,$3F
+        DB $14,$00,$3F,$15,$00,$3F,$17,$00,$3F,$18,$00,$3F,$1A,$00,$3F,$1B,$00,$3F,$1D,$00,$3F,$1E,$00,$3F
+        DB $20,$00,$3F,$21,$00,$3F,$22,$00,$3F,$24,$00,$3F,$25,$00,$3F,$27,$00,$3F,$28,$00,$3F,$2A,$00,$3F
+        DB $2B,$00,$3F,$2D,$00,$3F,$2E,$00,$3F,$30,$00,$3F,$31,$00,$3F,$33,$00,$3F,$34,$00,$3F,$36,$00,$3F
+        DB $37,$00,$3F,$39,$00,$3F,$3A,$00,$3F,$3C,$00,$3F,$3D,$00,$3F,$3F,$00,$3F,$3F,$00,$3E,$3F,$00,$3D
+        DB $3F,$00,$3B,$3F,$00,$3A,$3F,$00,$38,$3F,$00,$37,$3F,$00,$35,$3F,$00,$34,$3F,$00,$32,$3F,$00,$31
+        DB $3F,$00,$2F,$3F,$00,$2E,$3F,$00,$2C,$3F,$00,$2B,$3F,$00,$29,$3F,$00,$28,$3F,$00,$26,$3F,$00,$25
+        DB $3F,$00,$23,$3F,$00,$22,$3F,$00,$20,$3F,$00,$1F,$3F,$00,$1E,$3F,$00,$1C,$3F,$00,$1B,$3F,$00,$19
+        DB $3F,$00,$18,$3F,$00,$16,$3F,$00,$15,$3F,$00,$13,$3F,$00,$12,$3F,$00,$10,$3F,$00,$0F,$3F,$00,$0D
+        DB $3F,$00,$0C,$3F,$00,$0A,$3F,$00,$09,$3F,$00,$07,$3F,$00,$06,$3F,$00,$04,$3F,$00,$03,$3F,$00,$01
+DacHuePaletteEnd:
 
 ; Exact 768-byte font from Project112/src/font88.bin.
 Font88_132:
