@@ -297,1787 +297,1790 @@
  296  8186 21 E6 8B             LD      HL,MsgPaletteSuffix
  297  8189 CD 56 86             CALL    DebugPrint
  298  818C
- 299  818C CD 76 82             CALL    FillModeVRAM
- 300  818F CD 11 82             CALL    SelectPaletteParameters
- 301  8192 CD 07 83             CALL    VerifyDacPalette
- 302  8195 B7                   OR      A
- 303  8196 20 37                JR      NZ,PackedPaletteFailed
- 304  8198
- 305  8198 21 08 8C             LD      HL,MsgPalettePass
- 306  819B CD 56 86             CALL    DebugPrint
- 307  819E CD FC 85             CALL    SpectrumShowWriteComplete
- 308  81A1 CD 2C 86             CALL    WaitSpace
- 309  81A4
- 310  81A4 3A 73 86             LD      A,(PaletteLevel)
- 311  81A7 3C                   INC     A
- 312  81A8 32 73 86             LD      (PaletteLevel),A
- 313  81AB FE 04                CP      4
- 314  81AD 20 C2                JR      NZ,PackedPaletteNext
- 315  81AF
- 316  81AF 3A 6A 86             LD      A,(ModeCount)
- 317  81B2 3D                   DEC     A
- 318  81B3 32 6A 86             LD      (ModeCount),A
- 319  81B6 C2 39 81             JP      NZ,PackedModeNext
- 320  81B9
- 321  81B9 21 B3 8B             LD      HL,MsgSweepDone
- 322  81BC CD 56 86             CALL    DebugPrint
- 323  81BF CD 57 85             CALL    SpectrumClear
- 324  81C2 21 8F 8C             LD      HL,ScreenTitle
- 325  81C5 CD A3 84             CALL    SpectrumPrint
- 326  81C8 21 CE 8D             LD      HL,ScreenAllDone
- 327  81CB CD A3 84             CALL    SpectrumPrint
- 328  81CE C9                   RET
- 329  81CF
- 330  81CF              PackedPaletteFailed:
- 331  81CF 21 1C 8C             LD      HL,MsgPaletteFail
- 332  81D2 CD 56 86             CALL    DebugPrint
- 333  81D5 CD 8D 84             CALL    SpectrumShowDacFail
- 334  81D8 CD 2C 86             CALL    WaitSpace
- 335  81DB C9                   RET
- 336  81DC
- 337  81DC              ; Re-apply the currently selected packed-pixel 8-bpp resolution.
- 338  81DC              ConfigureCurrentMode:
- 339  81DC 3A 6B 86             LD      A,(ModeXLo)
- 340  81DF 5F                   LD      E,A
- 341  81E0 3E 00                LD      A,0
- 342  81E2 CD A0 80             CALL    WriteVgaRegister
- 343  81E5 3A 6C 86             LD      A,(ModeXHi)
- 344  81E8 5F                   LD      E,A
- 345  81E9 3E 01                LD      A,1
- 346  81EB CD A0 80             CALL    WriteVgaRegister
- 347  81EE 3A 6D 86             LD      A,(ModeYLo)
- 348  81F1 5F                   LD      E,A
- 349  81F2 3E 02                LD      A,2
- 350  81F4 CD A0 80             CALL    WriteVgaRegister
- 351  81F7 3A 6E 86             LD      A,(ModeYHi)
- 352  81FA 5F                   LD      E,A
- 353  81FB 3E 03                LD      A,3
- 354  81FD CD A0 80             CALL    WriteVgaRegister
- 355  8200 3E 08                LD      A,8
- 356  8202 5F                   LD      E,A
- 357  8203 3E 04                LD      A,4
- 358  8205 CD A0 80             CALL    WriteVgaRegister
- 359  8208 3E 01                LD      A,1
- 360  820A 5F                   LD      E,A
- 361  820B 3E 05                LD      A,5
- 362  820D CD A0 80             CALL    WriteVgaRegister
- 363  8210 C9                   RET
- 364  8211
- 365  8211              ; Palette table entry: count (word), index mask (byte), DAC source stride
- 366  8211              ; beyond RGB (word). The RGB332 source table contains 256 evenly ordered
- 367  8211              ; entries, so each smaller palette samples the full colour range.
- 368  8211              SelectPaletteParameters:
- 369  8211 21 E4 86             LD      HL,PaletteConfigTable
- 370  8214 3A 73 86             LD      A,(PaletteLevel)
- 371  8217 B7                   OR      A
- 372  8218 28 07                JR      Z,PaletteConfigFound
- 373  821A 47                   LD      B,A
- 374  821B              PaletteConfigSkip:
- 375  821B 11 05 00             LD      DE,5
- 376  821E 19                   ADD     HL,DE
- 377  821F 10 FA                DJNZ    PaletteConfigSkip
- 378  8221              PaletteConfigFound:
- 379  8221 7E                   LD      A,(HL)
- 380  8222 23                   INC     HL
- 381  8223 32 75 86             LD      (PaletteRemaining),A
- 382  8226 7E                   LD      A,(HL)
- 383  8227 23                   INC     HL
- 384  8228 32 76 86             LD      (PaletteRemaining+1),A
- 385  822B 7E                   LD      A,(HL)
- 386  822C 23                   INC     HL
- 387  822D 32 74 86             LD      (PaletteMask),A
- 388  8230 7E                   LD      A,(HL)
- 389  8231 23                   INC     HL
- 390  8232 32 77 86             LD      (PaletteStride),A
- 391  8235 7E                   LD      A,(HL)
- 392  8236 32 78 86             LD      (PaletteStride+1),A
- 393  8239 C9                   RET
- 394  823A
- 395  823A              ; Program the selected number of DAC entries from the full RGB332 ramp.
- 396  823A              ProgramDacPalette:
- 397  823A 21 D6 8E             LD      HL,Dac332Palette
- 398  823D ED 5B 77 86          LD      DE,(PaletteStride)
- 399  8241 AF                   XOR     A
- 400  8242 32 61 86             LD      (DacIndex),A
- 401  8245              ProgramDacPaletteLoop:
- 402  8245 3A 61 86             LD      A,(DacIndex)
- 403  8248 01 C8 03             LD      BC,$03C8
- 404  824B ED 79                OUT     (C),A
- 405  824D 01 C9 03             LD      BC,$03C9
- 406  8250 7E                   LD      A,(HL)
- 407  8251 23                   INC     HL
- 408  8252 ED 79                OUT     (C),A
- 409  8254 7E                   LD      A,(HL)
- 410  8255 23                   INC     HL
- 411  8256 ED 79                OUT     (C),A
- 412  8258 7E                   LD      A,(HL)
- 413  8259 23                   INC     HL
- 414  825A ED 79                OUT     (C),A
- 415  825C 19                   ADD     HL,DE
- 416  825D 3A 61 86             LD      A,(DacIndex)
- 417  8260 3C                   INC     A
- 418  8261 32 61 86             LD      (DacIndex),A
- 419  8264 E5                   PUSH    HL
- 420  8265 CD 6C 82             CALL    DecPaletteRemaining
- 421  8268 E1                   POP     HL
- 422  8269 20 DA                JR      NZ,ProgramDacPaletteLoop
- 423  826B C9                   RET
- 424  826C
- 425  826C              DecPaletteRemaining:
- 426  826C 2A 75 86             LD      HL,(PaletteRemaining)
- 427  826F 2B                   DEC     HL
- 428  8270 22 75 86             LD      (PaletteRemaining),HL
- 429  8273 7C                   LD      A,H
- 430  8274 B5                   OR      L
- 431  8275 C9                   RET
- 432  8276
- 433  8276              ; Fill exactly the active 8-bpp framebuffer. Display each palette entry
- 434  8276              ; as an eight-pixel-wide vertical colour bar, cycling through the selected
- 435  8276              ; palette size (2, 4, 16, or 256 entries).
- 436  8276              ; Only banks containing visible pixels are touched.
- 437  8276              FillModeVRAM:
- 438  8276 AF                   XOR     A
- 439  8277 32 5E 86             LD      (CurrentBank),A
- 440  827A 32 61 86             LD      (DacIndex),A
- 441  827D 3E 00                LD      A,0
- 442  827F 32 79 86             LD      (PatternCounter),A
- 443  8282 32 7A 86             LD      (ModeXCounter),A
- 444  8285 32 7B 86             LD      (ModeXCounter+1),A
- 445  8288              ModeFillBank:
- 446  8288 3A 5E 86             LD      A,(CurrentBank)
- 447  828B 01 DF 03             LD      BC,$03DF
- 448  828E ED 79                OUT     (C),A
- 449  8290 21 00 C0             LD      HL,$C000
- 450  8293 11 7C 86             LD      DE,ModePattern8
- 451  8296 3A 5E 86             LD      A,(CurrentBank)
- 452  8299 47                   LD      B,A
- 453  829A 3A 70 86             LD      A,(ModeBankCount)
- 454  829D 3D                   DEC     A
- 455  829E B8                   CP      B
- 456  829F 20 06                JR      NZ,ModeFillFullBank
- 457  82A1 ED 4B 71 86          LD      BC,(ModeLastBankBytes)
- 458  82A5 18 03                JR      ModeFillCountReady
- 459  82A7              ModeFillFullBank:
- 460  82A7 01 00 40             LD      BC,$4000
- 461  82AA              ModeFillCountReady:
- 462  82AA              ModeFillByte:
- 463  82AA 3A 61 86             LD      A,(DacIndex)
- 464  82AD 77                   LD      (HL),A
- 465  82AE 23                   INC     HL
- 466  82AF E5                   PUSH    HL                    ; preserve framebuffer write pointer
- 467  82B0
- 468  82B0                      ; Advance the horizontal pixel counter independently of HL, which
- 469  82B0                      ; must continue to point into the VGA aperture for the next write.
- 470  82B0 2A 7A 86             LD      HL,(ModeXCounter)
- 471  82B3 23                   INC     HL
- 472  82B4 22 7A 86             LD      (ModeXCounter),HL
- 473  82B7 E5                   PUSH    HL
- 474  82B8 3A 6B 86             LD      A,(ModeXLo)
- 475  82BB 5F                   LD      E,A
- 476  82BC 3A 6C 86             LD      A,(ModeXHi)
- 477  82BF 57                   LD      D,A
- 478  82C0 B7                   OR      A
- 479  82C1 ED 52                SBC     HL,DE
- 480  82C3 E1                   POP     HL
- 481  82C4 20 0F                JR      NZ,ModePatternContinue
- 482  82C6
- 483  82C6                      ; Start every scanline with palette index zero.
- 484  82C6 21 00 00             LD      HL,0
- 485  82C9 22 7A 86             LD      (ModeXCounter),HL
- 486  82CC AF                   XOR     A
- 487  82CD 32 79 86             LD      (PatternCounter),A
- 488  82D0 32 61 86             LD      (DacIndex),A
- 489  82D3 18 1D                JR      ModePatternAdvanceDone
- 490  82D5
- 491  82D5              ModePatternContinue:
- 492  82D5 3A 79 86             LD      A,(PatternCounter)
- 493  82D8 3C                   INC     A
- 494  82D9 FE 08                CP      8
- 495  82DB 20 12                JR      NZ,ModePatternHold
- 496  82DD AF                   XOR     A
- 497  82DE 32 79 86             LD      (PatternCounter),A
- 498  82E1 3A 61 86             LD      A,(DacIndex)
- 499  82E4 3C                   INC     A
- 500  82E5 5F                   LD      E,A
- 501  82E6 3A 74 86             LD      A,(PaletteMask)
- 502  82E9 A3                   AND     E
- 503  82EA 32 61 86             LD      (DacIndex),A
- 504  82ED 18 03                JR      ModePatternAdvanceDone
- 505  82EF              ModePatternHold:
- 506  82EF 32 79 86             LD      (PatternCounter),A
- 507  82F2              ModePatternAdvanceDone:
- 508  82F2 E1                   POP     HL                    ; restore framebuffer write pointer
- 509  82F3 0B                   DEC     BC
- 510  82F4 78                   LD      A,B
- 511  82F5 B1                   OR      C
- 512  82F6 20 B2                JR      NZ,ModeFillByte
- 513  82F8 3A 5E 86             LD      A,(CurrentBank)
- 514  82FB 3C                   INC     A
- 515  82FC 32 5E 86             LD      (CurrentBank),A
- 516  82FF 47                   LD      B,A
- 517  8300 3A 70 86             LD      A,(ModeBankCount)
- 518  8303 B8                   CP      B
- 519  8304 20 82                JR      NZ,ModeFillBank
- 520  8306 C9                   RET
- 521  8307
- 522  8307              ; Read back every programmed DAC entry, including all RGB components.
- 523  8307              ; Return A=0 on success, A=1 on mismatch.
- 524  8307              VerifyDacPalette:
- 525  8307 21 D6 8E             LD      HL,Dac332Palette
- 526  830A ED 5B 77 86          LD      DE,(PaletteStride)
- 527  830E AF                   XOR     A
- 528  830F 32 61 86             LD      (DacIndex),A
- 529  8312              VerifyDacPaletteLoop:
- 530  8312 3A 61 86             LD      A,(DacIndex)
- 531  8315 01 C7 03             LD      BC,$03C7
- 532  8318 ED 79                OUT     (C),A
- 533  831A 01 C9 03             LD      BC,$03C9
- 534  831D ED 78                IN      A,(C)
- 535  831F BE                   CP      (HL)
- 536  8320 20 1E                JR      NZ,VerifyDacPaletteFailed
- 537  8322 23                   INC     HL
- 538  8323 ED 78                IN      A,(C)
- 539  8325 BE                   CP      (HL)
- 540  8326 20 18                JR      NZ,VerifyDacPaletteFailed
- 541  8328 23                   INC     HL
- 542  8329 ED 78                IN      A,(C)
- 543  832B BE                   CP      (HL)
- 544  832C 20 12                JR      NZ,VerifyDacPaletteFailed
- 545  832E 23                   INC     HL
- 546  832F 19                   ADD     HL,DE
- 547  8330 3A 61 86             LD      A,(DacIndex)
- 548  8333 3C                   INC     A
- 549  8334 32 61 86             LD      (DacIndex),A
- 550  8337 E5                   PUSH    HL
- 551  8338 CD 6C 82             CALL    DecPaletteRemaining
- 552  833B E1                   POP     HL
- 553  833C 20 D4                JR      NZ,VerifyDacPaletteLoop
- 554  833E AF                   XOR     A
- 555  833F C9                   RET
- 556  8340              VerifyDacPaletteFailed:
- 557  8340 3E 01                LD      A,1
- 558  8342 C9                   RET
- 559  8343
- 560  8343              RunDac256Test:
- 561  8343 21 30 8C             LD      HL,MsgDacStart
- 562  8346 CD 56 86             CALL    DebugPrint
- 563  8349 CD 5B 84             CALL    SpectrumShowDacStart
- 564  834C 3E 00                LD      A,0
- 565  834E 1E 40                LD      E,64
- 566  8350 CD A0 80             CALL    WriteVgaRegister
- 567  8353 3E 01                LD      A,1
- 568  8355 1E 01                LD      E,1
- 569  8357 CD A0 80             CALL    WriteVgaRegister
- 570  835A 3E 02                LD      A,2
- 571  835C 1E C8                LD      E,200
- 572  835E CD A0 80             CALL    WriteVgaRegister
- 573  8361 3E 03                LD      A,3
- 574  8363 1E 00                LD      E,0
- 575  8365 CD A0 80             CALL    WriteVgaRegister
- 576  8368 3E 04                LD      A,4
- 577  836A 1E 08                LD      E,8
- 578  836C CD A0 80             CALL    WriteVgaRegister
- 579  836F 3E 05                LD      A,5
- 580  8371 1E 01                LD      E,1
- 581  8373 CD A0 80             CALL    WriteVgaRegister
- 582  8376 CD C6 83             CALL    ProgramDac332
- 583  8379
- 584  8379                      ; DAC writes use ports 3C8h/3C9h. In the Project131 adapter model,
- 585  8379                      ; writes to legacy VGA ports clear vbe_enabled. Re-apply the packed
- 586  8379                      ; 320x200x8 mode AFTER programming the DAC, before touching VRAM.
- 587  8379 3E 00                LD      A,0
- 588  837B 1E 40                LD      E,64
- 589  837D CD A0 80             CALL    WriteVgaRegister
- 590  8380 3E 01                LD      A,1
- 591  8382 1E 01                LD      E,1
- 592  8384 CD A0 80             CALL    WriteVgaRegister
- 593  8387 3E 02                LD      A,2
- 594  8389 1E C8                LD      E,200
- 595  838B CD A0 80             CALL    WriteVgaRegister
- 596  838E 3E 03                LD      A,3
- 597  8390 1E 00                LD      E,0
- 598  8392 CD A0 80             CALL    WriteVgaRegister
- 599  8395 3E 04                LD      A,4
- 600  8397 1E 08                LD      E,8
- 601  8399 CD A0 80             CALL    WriteVgaRegister
- 602  839C 3E 05                LD      A,5
- 603  839E 1E 01                LD      E,1
- 604  83A0 CD A0 80             CALL    WriteVgaRegister
- 605  83A3
- 606  83A3 CD EE 83             CALL    FillDacFramebuffer
- 607  83A6 CD 29 84             CALL    VerifyDac332
- 608  83A9 B7                   OR      A
- 609  83AA 20 0D                JR      NZ,DacTestFailed
- 610  83AC 21 53 8C             LD      HL,MsgDacPass
- 611  83AF CD 56 86             CALL    DebugPrint
- 612  83B2 CD 71 84             CALL    SpectrumShowDacPass
- 613  83B5 CD 2C 86             CALL    WaitSpace
- 614  83B8 C9                   RET
- 615  83B9              DacTestFailed:
- 616  83B9 21 71 8C             LD      HL,MsgDacFail
- 617  83BC CD 56 86             CALL    DebugPrint
- 618  83BF CD 8D 84             CALL    SpectrumShowDacFail
- 619  83C2 CD 2C 86             CALL    WaitSpace
- 620  83C5 C9                   RET
- 621  83C6
- 622  83C6              ProgramDac332:
- 623  83C6 21 D6 8E             LD      HL,Dac332Palette
- 624  83C9 AF                   XOR     A
- 625  83CA 32 61 86             LD      (DacIndex),A
- 626  83CD              DacWriteLoop:
- 627  83CD 3A 61 86             LD      A,(DacIndex)
- 628  83D0 01 C8 03             LD      BC,$03C8
- 629  83D3 ED 79                OUT     (C),A
- 630  83D5 01 C9 03             LD      BC,$03C9
- 631  83D8 7E                   LD      A,(HL)
- 632  83D9 23                   INC     HL
- 633  83DA ED 79                OUT     (C),A
- 634  83DC 7E                   LD      A,(HL)
- 635  83DD 23                   INC     HL
- 636  83DE ED 79                OUT     (C),A
- 637  83E0 7E                   LD      A,(HL)
- 638  83E1 23                   INC     HL
- 639  83E2 ED 79                OUT     (C),A
- 640  83E4 3A 61 86             LD      A,(DacIndex)
- 641  83E7 3C                   INC     A
- 642  83E8 32 61 86             LD      (DacIndex),A
- 643  83EB 20 E0                JR      NZ,DacWriteLoop
- 644  83ED C9                   RET
- 645  83EE
- 646  83EE              FillDacFramebuffer:
- 647  83EE AF                   XOR     A
- 648  83EF 32 5E 86             LD      (CurrentBank),A
- 649  83F2 32 61 86             LD      (DacIndex),A
- 650  83F5              DacFillBank:
- 651  83F5 3A 5E 86             LD      A,(CurrentBank)
- 652  83F8 01 DF 03             LD      BC,$03DF
- 653  83FB ED 79                OUT     (C),A
- 654  83FD 21 00 C0             LD      HL,$C000
- 655  8400 3A 5E 86             LD      A,(CurrentBank)
- 656  8403 FE 03                CP      3
- 657  8405 28 05                JR      Z,DacFillLastBank
- 658  8407 01 00 40             LD      BC,$4000
- 659  840A 18 03                JR      DacFillCountReady
- 660  840C              DacFillLastBank:
- 661  840C 01 00 3A             LD      BC,14848
- 662  840F              DacFillCountReady:
- 663  840F              DacFillByte:
- 664  840F 3A 61 86             LD      A,(DacIndex)
- 665  8412 77                   LD      (HL),A
- 666  8413 23                   INC     HL
- 667  8414 3C                   INC     A
- 668  8415 32 61 86             LD      (DacIndex),A
- 669  8418 0B                   DEC     BC
- 670  8419 78                   LD      A,B
- 671  841A B1                   OR      C
- 672  841B 20 F2                JR      NZ,DacFillByte
- 673  841D 3A 5E 86             LD      A,(CurrentBank)
- 674  8420 3C                   INC     A
- 675  8421 32 5E 86             LD      (CurrentBank),A
- 676  8424 FE 04                CP      4
- 677  8426 20 CD                JR      NZ,DacFillBank
- 678  8428 C9                   RET
- 679  8429
- 680  8429              VerifyDac332:
- 681  8429 21 D6 8E             LD      HL,Dac332Palette
- 682  842C AF                   XOR     A
- 683  842D 32 61 86             LD      (DacIndex),A
- 684  8430              DacReadLoop:
- 685  8430 3A 61 86             LD      A,(DacIndex)
- 686  8433 01 C7 03             LD      BC,$03C7
- 687  8436 ED 79                OUT     (C),A
- 688  8438 01 C9 03             LD      BC,$03C9
- 689  843B ED 78                IN      A,(C)
- 690  843D BE                   CP      (HL)
- 691  843E 20 18                JR      NZ,DacVerifyFailed
- 692  8440 23                   INC     HL
- 693  8441 ED 78                IN      A,(C)
- 694  8443 BE                   CP      (HL)
- 695  8444 20 12                JR      NZ,DacVerifyFailed
- 696  8446 23                   INC     HL
- 697  8447 ED 78                IN      A,(C)
- 698  8449 BE                   CP      (HL)
- 699  844A 20 0C                JR      NZ,DacVerifyFailed
- 700  844C 23                   INC     HL
- 701  844D 3A 61 86             LD      A,(DacIndex)
- 702  8450 3C                   INC     A
- 703  8451 32 61 86             LD      (DacIndex),A
- 704  8454 20 DA                JR      NZ,DacReadLoop
- 705  8456 AF                   XOR     A
- 706  8457 C9                   RET
- 707  8458              DacVerifyFailed:
- 708  8458 3E 01                LD      A,1
- 709  845A C9                   RET
- 710  845B
- 711  845B              SpectrumShowDacStart:
- 712  845B CD 57 85             CALL    SpectrumClear
- 713  845E 21 8F 8C             LD      HL,ScreenTitle
- 714  8461 CD A3 84             CALL    SpectrumPrint
- 715  8464 21 F8 8D             LD      HL,ScreenDacHeading
- 716  8467 CD A3 84             CALL    SpectrumPrint
- 717  846A 21 13 8E             LD      HL,ScreenDacWriting
- 718  846D CD A3 84             CALL    SpectrumPrint
- 719  8470 C9                   RET
- 720  8471              SpectrumShowDacPass:
- 721  8471 CD 57 85             CALL    SpectrumClear
- 722  8474 21 8F 8C             LD      HL,ScreenTitle
- 723  8477 CD A3 84             CALL    SpectrumPrint
- 724  847A 21 F8 8D             LD      HL,ScreenDacHeading
- 725  847D CD A3 84             CALL    SpectrumPrint
- 726  8480 21 6C 8E             LD      HL,ScreenDacPassed
- 727  8483 CD A3 84             CALL    SpectrumPrint
- 728  8486 21 9F 8D             LD      HL,ScreenNextHint
- 729  8489 CD A3 84             CALL    SpectrumPrint
- 730  848C C9                   RET
- 731  848D              SpectrumShowDacFail:
- 732  848D CD 57 85             CALL    SpectrumClear
- 733  8490 21 8F 8C             LD      HL,ScreenTitle
- 734  8493 CD A3 84             CALL    SpectrumPrint
- 735  8496 21 F8 8D             LD      HL,ScreenDacHeading
- 736  8499 CD A3 84             CALL    SpectrumPrint
- 737  849C 21 A3 8E             LD      HL,ScreenDacFailed
- 738  849F CD A3 84             CALL    SpectrumPrint
- 739  84A2 C9                   RET
- 740  84A3
- 741  84A3              SpectrumPrint:
- 742  84A3 7E                   LD      A,(HL)
- 743  84A4 B7                   OR      A
- 744  84A5 C8                   RET     Z
- 745  84A6 23                   INC     HL
- 746  84A7 FE 0D                CP      13
- 747  84A9 CA 44 85             JP      Z,SpectrumPrintNewLine
- 748  84AC FE 20                CP      32
- 749  84AE 38 F3                JR      C,SpectrumPrint
- 750  84B0 FE 80                CP      128
- 751  84B2 30 EF                JR      NC,SpectrumPrint
- 752  84B4 E5                   PUSH    HL
- 753  84B5 D6 20                SUB     32
- 754  84B7 6F                   LD      L,A
- 755  84B8 26 00                LD      H,0
- 756  84BA 29                   ADD     HL,HL
- 757  84BB 29                   ADD     HL,HL
- 758  84BC 29                   ADD     HL,HL
- 759  84BD 11 F6 91             LD      DE,Font88_132
- 760  84C0 19                   ADD     HL,DE
- 761  84C1 22 66 86             LD      (SpectrumFontPtr),HL
- 762  84C4 AF                   XOR     A
- 763  84C5 32 64 86             LD      (SpectrumGlyphLine),A
- 764  84C8              SpectrumGlyphLoop:
- 765  84C8 2A 66 86             LD      HL,(SpectrumFontPtr)
- 766  84CB 7E                   LD      A,(HL)
- 767  84CC 32 65 86             LD      (SpectrumGlyphByte),A
- 768  84CF 23                   INC     HL
- 769  84D0 22 66 86             LD      (SpectrumFontPtr),HL
- 770  84D3
- 771  84D3                      ; Same bitmap address calculation as Project112 RenderGlyph_Standard112.
- 772  84D3 3A 63 86             LD      A,(SpectrumCursorY)
- 773  84D6 87                   ADD     A,A
- 774  84D7 87                   ADD     A,A
- 775  84D8 87                   ADD     A,A
- 776  84D9 47                   LD      B,A
- 777  84DA 3A 64 86             LD      A,(SpectrumGlyphLine)
- 778  84DD 80                   ADD     A,B
- 779  84DE 47                   LD      B,A
- 780  84DF 78                   LD      A,B
- 781  84E0 E6 C0                AND     $C0
- 782  84E2 0F                   RRCA
- 783  84E3 0F                   RRCA
- 784  84E4 0F                   RRCA
- 785  84E5 4F                   LD      C,A
- 786  84E6 78                   LD      A,B
- 787  84E7 E6 07                AND     $07
- 788  84E9 B1                   OR      C
- 789  84EA F6 40                OR      $40
- 790  84EC 67                   LD      H,A
- 791  84ED 78                   LD      A,B
- 792  84EE E6 38                AND     $38
- 793  84F0 07                   RLCA
- 794  84F1 07                   RLCA
- 795  84F2 6F                   LD      L,A
- 796  84F3 3A 62 86             LD      A,(SpectrumCursorX)
- 797  84F6 B5                   OR      L
- 798  84F7 6F                   LD      L,A
- 799  84F8 3A 65 86             LD      A,(SpectrumGlyphByte)
- 800  84FB 77                   LD      (HL),A
- 801  84FC
- 802  84FC 3A 64 86             LD      A,(SpectrumGlyphLine)
- 803  84FF 3C                   INC     A
- 804  8500 32 64 86             LD      (SpectrumGlyphLine),A
- 805  8503 FE 08                CP      8
- 806  8505 20 C1                JR      NZ,SpectrumGlyphLoop
- 807  8507
- 808  8507                      ; Same attribute-cell calculation as Project112.
- 809  8507 3A 63 86             LD      A,(SpectrumCursorY)
- 810  850A 6F                   LD      L,A
- 811  850B 26 00                LD      H,0
- 812  850D 29                   ADD     HL,HL
- 813  850E 29                   ADD     HL,HL
- 814  850F 29                   ADD     HL,HL
- 815  8510 29                   ADD     HL,HL
- 816  8511 29                   ADD     HL,HL
- 817  8512 11 00 58             LD      DE,$5800
- 818  8515 19                   ADD     HL,DE
- 819  8516 3A 62 86             LD      A,(SpectrumCursorX)
- 820  8519 85                   ADD     A,L
- 821  851A 6F                   LD      L,A
- 822  851B 30 01                JR      NC,SpectrumAttrAddressReady
- 823  851D 24                   INC     H
- 824  851E              SpectrumAttrAddressReady:
- 825  851E 3E 47                LD      A,$47
- 826  8520 77                   LD      (HL),A
- 827  8521
- 828  8521 3A 62 86             LD      A,(SpectrumCursorX)
- 829  8524 3C                   INC     A
- 830  8525 FE 20                CP      32
- 831  8527 38 14                JR      C,SpectrumCursorXReady
- 832  8529 AF                   XOR     A
- 833  852A 32 62 86             LD      (SpectrumCursorX),A
- 834  852D 3A 63 86             LD      A,(SpectrumCursorY)
- 835  8530 3C                   INC     A
- 836  8531 FE 18                CP      24
- 837  8533 38 01                JR      C,SpectrumCursorYReady
- 838  8535 AF                   XOR     A
- 839  8536              SpectrumCursorYReady:
- 840  8536 32 63 86             LD      (SpectrumCursorY),A
- 841  8539 E1                   POP     HL
- 842  853A C3 A3 84             JP      SpectrumPrint
- 843  853D              SpectrumCursorXReady:
- 844  853D 32 62 86             LD      (SpectrumCursorX),A
- 845  8540 E1                   POP     HL
- 846  8541 C3 A3 84             JP      SpectrumPrint
- 847  8544
- 848  8544              SpectrumPrintNewLine:
- 849  8544 AF                   XOR     A
- 850  8545 32 62 86             LD      (SpectrumCursorX),A
- 851  8548 3A 63 86             LD      A,(SpectrumCursorY)
- 852  854B 3C                   INC     A
- 853  854C FE 18                CP      24
- 854  854E 38 01                JR      C,SpectrumNewLineYReady
- 855  8550 AF                   XOR     A
- 856  8551              SpectrumNewLineYReady:
- 857  8551 32 63 86             LD      (SpectrumCursorY),A
- 858  8554 C3 A3 84             JP      SpectrumPrint
- 859  8557
- 860  8557              SpectrumClear:
- 861  8557 AF                   XOR     A
- 862  8558 32 62 86             LD      (SpectrumCursorX),A
- 863  855B 32 63 86             LD      (SpectrumCursorY),A
- 864  855E                      ; Clear the 6144-byte bitmap.
- 865  855E 21 00 40             LD      HL,$4000
- 866  8561 11 01 40             LD      DE,$4001
- 867  8564 01 FF 17             LD      BC,$17FF
- 868  8567 77                   LD      (HL),A
- 869  8568 ED B0                LDIR
- 870  856A                      ; Initialize all 768 attributes.
- 871  856A 21 00 58             LD      HL,$5800
- 872  856D 11 01 58             LD      DE,$5801
- 873  8570 01 FF 02             LD      BC,$02FF
- 874  8573 3E 07                LD      A,$07
- 875  8575 77                   LD      (HL),A
- 876  8576 ED B0                LDIR
- 877  8578 C9                   RET
- 878  8579
- 879  8579              SpectrumShowStartup:
- 880  8579 CD 57 85             CALL    SpectrumClear
- 881  857C 21 8F 8C             LD      HL,ScreenTitle
- 882  857F CD A3 84             CALL    SpectrumPrint
- 883  8582 21 AF 8C             LD      HL,ScreenStarting
- 884  8585 CD A3 84             CALL    SpectrumPrint
- 885  8588 C9                   RET
- 886  8589
- 887  8589              ; HL points to a zero-terminated status string.
- 888  8589              SpectrumShowStatus:
- 889  8589 E5                   PUSH    HL
- 890  858A CD 57 85             CALL    SpectrumClear
- 891  858D 21 8F 8C             LD      HL,ScreenTitle
- 892  8590 CD A3 84             CALL    SpectrumPrint
- 893  8593 E1                   POP     HL
- 894  8594 CD A3 84             CALL    SpectrumPrint
- 895  8597 C9                   RET
- 896  8598
- 897  8598              SpectrumShowInitialMode:
- 898  8598 CD 57 85             CALL    SpectrumClear
- 899  859B 21 8F 8C             LD      HL,ScreenTitle
- 900  859E CD A3 84             CALL    SpectrumPrint
- 901  85A1 21 F3 8C             LD      HL,ScreenInitialMode
- 902  85A4 CD A3 84             CALL    SpectrumPrint
- 903  85A7 21 21 8D             LD      HL,ScreenInitialTestRunning
- 904  85AA CD A3 84             CALL    SpectrumPrint
- 905  85AD 21 66 8D             LD      HL,ScreenWriteRunning
- 906  85B0 CD A3 84             CALL    SpectrumPrint
- 907  85B3 C9                   RET
- 908  85B4
- 909  85B4              SpectrumShowInitialWriteComplete:
- 910  85B4 CD 57 85             CALL    SpectrumClear
- 911  85B7 21 8F 8C             LD      HL,ScreenTitle
- 912  85BA CD A3 84             CALL    SpectrumPrint
- 913  85BD 21 F3 8C             LD      HL,ScreenInitialMode
- 914  85C0 CD A3 84             CALL    SpectrumPrint
- 915  85C3 21 21 8D             LD      HL,ScreenInitialTestRunning
- 916  85C6 CD A3 84             CALL    SpectrumPrint
- 917  85C9 21 86 8D             LD      HL,ScreenWritePassed
- 918  85CC CD A3 84             CALL    SpectrumPrint
- 919  85CF C9                   RET
- 920  85D0
- 921  85D0              SpectrumShowMode:
- 922  85D0 CD 57 85             CALL    SpectrumClear
- 923  85D3 21 8F 8C             LD      HL,ScreenTitle
- 924  85D6 CD A3 84             CALL    SpectrumPrint
- 925  85D9 21 E0 8C             LD      HL,ScreenModeHeading
- 926  85DC CD A3 84             CALL    SpectrumPrint
- 927  85DF                      ; Fetch and advance the pointer in the mode-label pointer table.
- 928  85DF 2A 5F 86             LD      HL,(ModeLabelPtr)
- 929  85E2 7E                   LD      A,(HL)
- 930  85E3 5F                   LD      E,A
- 931  85E4 23                   INC     HL
- 932  85E5 7E                   LD      A,(HL)
- 933  85E6 57                   LD      D,A
- 934  85E7 23                   INC     HL
- 935  85E8 22 5F 86             LD      (ModeLabelPtr),HL
- 936  85EB EB                   EX      DE,HL
- 937  85EC CD A3 84             CALL    SpectrumPrint
- 938  85EF 21 4D 8D             LD      HL,ScreenTestRunning
- 939  85F2 CD A3 84             CALL    SpectrumPrint
- 940  85F5 21 66 8D             LD      HL,ScreenWriteRunning
- 941  85F8 CD A3 84             CALL    SpectrumPrint
- 942  85FB C9                   RET
- 943  85FC
- 944  85FC              SpectrumShowWriteComplete:
- 945  85FC CD 57 85             CALL    SpectrumClear
- 946  85FF 21 8F 8C             LD      HL,ScreenTitle
- 947  8602 CD A3 84             CALL    SpectrumPrint
- 948  8605 21 E0 8C             LD      HL,ScreenModeHeading
- 949  8608 CD A3 84             CALL    SpectrumPrint
- 950  860B                      ; Re-read the just-consumed mode label without advancing the table.
- 951  860B 2A 5F 86             LD      HL,(ModeLabelPtr)
- 952  860E 2B                   DEC     HL
- 953  860F 2B                   DEC     HL
- 954  8610 7E                   LD      A,(HL)
- 955  8611 5F                   LD      E,A
- 956  8612 23                   INC     HL
- 957  8613 7E                   LD      A,(HL)
- 958  8614 57                   LD      D,A
- 959  8615 EB                   EX      DE,HL
- 960  8616 CD A3 84             CALL    SpectrumPrint
- 961  8619 21 4D 8D             LD      HL,ScreenTestRunning
- 962  861C CD A3 84             CALL    SpectrumPrint
- 963  861F 21 86 8D             LD      HL,ScreenWritePassed
- 964  8622 CD A3 84             CALL    SpectrumPrint
- 965  8625 21 9F 8D             LD      HL,ScreenNextHint
- 966  8628 CD A3 84             CALL    SpectrumPrint
- 967  862B C9                   RET
- 968  862C
- 969  862C              ; Wait for SPACE so every resolution and its complete colour ramp
- 970  862C              ; remains visible until the user is ready for the next mode.
- 971  862C              WaitSpace:
- 972  862C 01 FE 7F             LD      BC,$7FFE
- 973  862F              WaitSpacePress:
- 974  862F ED 78                IN      A,(C)
- 975  8631 E6 01                AND     1
- 976  8633 20 FA                JR      NZ,WaitSpacePress
- 977  8635              WaitSpaceRelease:
- 978  8635 ED 78                IN      A,(C)
- 979  8637 E6 01                AND     1
- 980  8639 28 FA                JR      Z,WaitSpaceRelease
- 981  863B C9                   RET
- 982  863C
- 983  863C              DebugHexByte:
- 984  863C F5                   PUSH    AF
- 985  863D 0F                   RRCA
- 986  863E 0F                   RRCA
- 987  863F 0F                   RRCA
- 988  8640 0F                   RRCA
- 989  8641 CD 49 86             CALL    DebugHexNibble
- 990  8644 F1                   POP     AF
- 991  8645 CD 49 86             CALL    DebugHexNibble
- 992  8648 C9                   RET
- 993  8649              DebugHexNibble:
- 994  8649 E6 0F                AND     $0F
- 995  864B C6 30                ADD     A,'0'
- 996  864D FE 3A                CP      '9'+1
- 997  864F 38 02                JR      C,DebugHexOut
- 998  8651 C6 07                ADD     A,7
- 999  8653              DebugHexOut:
-1000  8653 D3 EF                OUT     ($EF),A
-1001  8655 C9                   RET
-1002  8656
-1003  8656              ; -------------------------------------------------------------------------
-1004  8656              ; Port EF text logger (ASCII bytes, same convention as Project112).
-1005  8656              ; -------------------------------------------------------------------------
-1006  8656              DebugPrint:
-1007  8656 7E                   LD      A,(HL)
-1008  8657 B7                   OR      A
-1009  8658 C8                   RET     Z
-1010  8659 D3 EF                OUT     ($EF),A
-1011  865B 23                   INC     HL
-1012  865C 18 F8                JR      DebugPrint
-1013  865E
-1014  865E 00           CurrentBank: DB 0
-1015  865F
-1016  865F
-1017  865F 00 00        ModeLabelPtr: DW 0
-1018  8661 00           DacIndex: DB 0
-1019  8662 00           SpectrumCursorX: DB 0
-1020  8663 00           SpectrumCursorY: DB 0
-1021  8664 00           SpectrumGlyphLine: DB 0
-1022  8665 00           SpectrumGlyphByte: DB 0
-1023  8666 00 00        SpectrumFontPtr: DW 0
-1024  8668 00 00        ModeTablePtr: DW 0
-1025  866A 00           ModeCount:    DB 0
-1026  866B 00           ModeXLo:      DB 0
-1027  866C 00           ModeXHi:      DB 0
-1028  866D 00           ModeYLo:      DB 0
-1029  866E 00           ModeYHi:      DB 0
-1030  866F 00           ModeBpp:      DB 0
-1031  8670 00           ModeBankCount: DB 0
-1032  8671 00 00        ModeLastBankBytes: DW 0
-1033  8673 00           PaletteLevel: DB 0
-1034  8674 00           PaletteMask: DB 0
-1035  8675 00 00        PaletteRemaining: DW 0
-1036  8677 00 00        PaletteStride: DW 0
-1037  8679 00           PatternCounter: DB 0
-1038  867A 00 00        ModeXCounter: DW 0
-1039  867C
-1040  867C              ; Sixteen initialized EGA palette indices, each repeated twice.
-1041  867C              ; Project132 also uses EGA entry 15 as white for its on-screen banner.
-1042  867C              ModePattern8:
-1043  867C 00 00 01 01          DB $00,$00,$01,$01,$02,$02,$03,$03,$04,$04,$05,$05,$06,$06,$07,$07
-1043  8680 02 02 03 03
-1043  8684 04 04 05 05
-1043  8688 06 06 07 07
-1044  868C 08 08 09 09          DB $08,$08,$09,$09,$0A,$0A,$0B,$0B,$0C,$0C,$0D,$0D,$0E,$0E,$0F,$0F
-1044  8690 0A 0A 0B 0B
-1044  8694 0C 0C 0D 0D
-1044  8698 0E 0E 0F 0F
-1045  869C              ModePattern8End:
-1046  869C
-1047  869C              ; Standard PC display resolutions, all tested in 8-bpp indexed colour.
-1048  869C              ; Entry: X low, X high, Y low, Y high, BPP, bank count, last-bank bytes.
-1049  869C              ; Framebuffer sizes are <= 1 MiB.
-1050  869C              PackedModeTable:
-1051  869C 40 01 C8 00          DB 320&255,320>>8,200&255,200>>8,8,4,14848&255,14848>>8
-1051  86A0 08 04 00 3A
-1052  86A4 40 01 F0 00          DB 320&255,320>>8,240&255,240>>8,8,5,11264&255,11264>>8
-1052  86A8 08 05 00 2C
-1053  86AC 00 02 80 01          DB 512&255,512>>8,384&255,384>>8,8,12,0,64
-1053  86B0 08 0C 00 40
-1054  86B4 80 02 C8 00          DB 640&255,640>>8,200&255,200>>8,8,8,14336&255,14336>>8
-1054  86B8 08 08 00 38
-1055  86BC 80 02 5E 01          DB 640&255,640>>8,350&255,350>>8,8,14,11008&255,11008>>8
-1055  86C0 08 0E 00 2B
-1056  86C4 80 02 90 01          DB 640&255,640>>8,400&255,400>>8,8,16,10240&255,10240>>8
-1056  86C8 08 10 00 28
-1057  86CC 80 02 E0 01          DB 640&255,640>>8,480&255,480>>8,8,19,12288&255,12288>>8
-1057  86D0 08 13 00 30
-1058  86D4 20 03 58 02          DB 800&255,800>>8,600&255,600>>8,8,30,4864&255,4864>>8
-1058  86D8 08 1E 00 13
-1059  86DC 00 04 00 03          DB 1024&255,1024>>8,768&255,768>>8,8,48,0,64
-1059  86E0 08 30 00 40
-1060  86E4
-1061  86E4
-1062  86E4              ; Palette levels: 2, 4, 16 and 256 entries. Palette data is sequential:
-1063  86E4              ; first 16 entries are a conventional EGA palette, then RGB332 ramp.
-1064  86E4              PaletteConfigTable:
-1065  86E4 02 00                DW 2
-1066  86E6 01                   DB 1
-1067  86E7 00 00                DW 0
-1068  86E9 04 00                DW 4
-1069  86EB 03                   DB 3
-1070  86EC 00 00                DW 0
-1071  86EE 10 00                DW 16
-1072  86F0 0F                   DB 15
-1073  86F1 00 00                DW 0
-1074  86F3 00 01                DW 256
-1075  86F5 FF                   DB 255
-1076  86F6 00 00                DW 0
-1077  86F8
-1078  86F8              ; Text shown on the Spectrum screen for each VGA mode.
-1079  86F8              ModeLabelTable:
-1080  86F8 0A 87 5F 87          DW ModeLabel01,ModeLabel02,ModeLabel03,ModeLabel04,ModeLabel05
-1080  86FC B4 87 0A 88
-1080  8700 60 88
-1081  8702 B6 88 0C 89          DW ModeLabel06,ModeLabel07,ModeLabel08,ModeLabel09
-1081  8706 62 89 B8 89
-1082  870A 4D 4F 44 45  ModeLabel01: DEFM "MODE 01 OF 09",13,"RESOLUTION: 320x200",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 64000 BYTES",13,13,0
-1082  870E 20 30 31 20
-1082  8712 4F 46 20 30
-1082  8716 39 0D 52 45
-1082  871A 53 4F 4C 55
-1082  871E 54 49 4F 4E
-1082  8722 3A 20 33 32
-1082  8726 30 78 32 30
-1082  872A 30 0D 43 4F
-1082  872E 4C 4F 52 3A
-1082  8732 20 38 20 42
-1082  8736 50 50 20 2F
-1082  873A 20 49 4E 44
-1082  873E 45 58 45 44
-1082  8742 20 50 41 4C
-1082  8746 45 54 54 45
-1082  874A 0D 56 52 41
-1082  874E 4D 3A 20 36
-1082  8752 34 30 30 30
-1082  8756 20 42 59 54
-1082  875A 45 53 0D 0D
-1082  875E 00
-1083  875F 4D 4F 44 45  ModeLabel02: DEFM "MODE 02 OF 09",13,"RESOLUTION: 320x240",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 76800 BYTES",13,13,0
-1083  8763 20 30 32 20
-1083  8767 4F 46 20 30
-1083  876B 39 0D 52 45
-1083  876F 53 4F 4C 55
-1083  8773 54 49 4F 4E
-1083  8777 3A 20 33 32
-1083  877B 30 78 32 34
-1083  877F 30 0D 43 4F
-1083  8783 4C 4F 52 3A
-1083  8787 20 38 20 42
-1083  878B 50 50 20 2F
-1083  878F 20 49 4E 44
-1083  8793 45 58 45 44
-1083  8797 20 50 41 4C
-1083  879B 45 54 54 45
-1083  879F 0D 56 52 41
-1083  87A3 4D 3A 20 37
-1083  87A7 36 38 30 30
-1083  87AB 20 42 59 54
-1083  87AF 45 53 0D 0D
-1083  87B3 00
-1084  87B4 4D 4F 44 45  ModeLabel03: DEFM "MODE 03 OF 09",13,"RESOLUTION: 512x384",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 196608 BYTES",13,13,0
-1084  87B8 20 30 33 20
-1084  87BC 4F 46 20 30
-1084  87C0 39 0D 52 45
-1084  87C4 53 4F 4C 55
-1084  87C8 54 49 4F 4E
-1084  87CC 3A 20 35 31
-1084  87D0 32 78 33 38
-1084  87D4 34 0D 43 4F
-1084  87D8 4C 4F 52 3A
-1084  87DC 20 38 20 42
-1084  87E0 50 50 20 2F
-1084  87E4 20 49 4E 44
-1084  87E8 45 58 45 44
-1084  87EC 20 50 41 4C
-1084  87F0 45 54 54 45
-1084  87F4 0D 56 52 41
-1084  87F8 4D 3A 20 31
-1084  87FC 39 36 36 30
-1084  8800 38 20 42 59
-1084  8804 54 45 53 0D
-1084  8808 0D 00
-1085  880A 4D 4F 44 45  ModeLabel04: DEFM "MODE 04 OF 09",13,"RESOLUTION: 640x200",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 128000 BYTES",13,13,0
-1085  880E 20 30 34 20
-1085  8812 4F 46 20 30
-1085  8816 39 0D 52 45
-1085  881A 53 4F 4C 55
-1085  881E 54 49 4F 4E
-1085  8822 3A 20 36 34
-1085  8826 30 78 32 30
-1085  882A 30 0D 43 4F
-1085  882E 4C 4F 52 3A
-1085  8832 20 38 20 42
-1085  8836 50 50 20 2F
-1085  883A 20 49 4E 44
-1085  883E 45 58 45 44
-1085  8842 20 50 41 4C
-1085  8846 45 54 54 45
-1085  884A 0D 56 52 41
-1085  884E 4D 3A 20 31
-1085  8852 32 38 30 30
-1085  8856 30 20 42 59
-1085  885A 54 45 53 0D
-1085  885E 0D 00
-1086  8860 4D 4F 44 45  ModeLabel05: DEFM "MODE 05 OF 09",13,"RESOLUTION: 640x350",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 224000 BYTES",13,13,0
-1086  8864 20 30 35 20
-1086  8868 4F 46 20 30
-1086  886C 39 0D 52 45
-1086  8870 53 4F 4C 55
-1086  8874 54 49 4F 4E
-1086  8878 3A 20 36 34
-1086  887C 30 78 33 35
-1086  8880 30 0D 43 4F
-1086  8884 4C 4F 52 3A
-1086  8888 20 38 20 42
-1086  888C 50 50 20 2F
-1086  8890 20 49 4E 44
-1086  8894 45 58 45 44
-1086  8898 20 50 41 4C
-1086  889C 45 54 54 45
-1086  88A0 0D 56 52 41
-1086  88A4 4D 3A 20 32
-1086  88A8 32 34 30 30
-1086  88AC 30 20 42 59
-1086  88B0 54 45 53 0D
-1086  88B4 0D 00
-1087  88B6 4D 4F 44 45  ModeLabel06: DEFM "MODE 06 OF 09",13,"RESOLUTION: 640x400",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 256000 BYTES",13,13,0
-1087  88BA 20 30 36 20
-1087  88BE 4F 46 20 30
-1087  88C2 39 0D 52 45
-1087  88C6 53 4F 4C 55
-1087  88CA 54 49 4F 4E
-1087  88CE 3A 20 36 34
-1087  88D2 30 78 34 30
-1087  88D6 30 0D 43 4F
-1087  88DA 4C 4F 52 3A
-1087  88DE 20 38 20 42
-1087  88E2 50 50 20 2F
-1087  88E6 20 49 4E 44
-1087  88EA 45 58 45 44
-1087  88EE 20 50 41 4C
-1087  88F2 45 54 54 45
-1087  88F6 0D 56 52 41
-1087  88FA 4D 3A 20 32
-1087  88FE 35 36 30 30
-1087  8902 30 20 42 59
-1087  8906 54 45 53 0D
-1087  890A 0D 00
-1088  890C 4D 4F 44 45  ModeLabel07: DEFM "MODE 07 OF 09",13,"RESOLUTION: 640x480",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 307200 BYTES",13,13,0
-1088  8910 20 30 37 20
-1088  8914 4F 46 20 30
-1088  8918 39 0D 52 45
-1088  891C 53 4F 4C 55
-1088  8920 54 49 4F 4E
-1088  8924 3A 20 36 34
-1088  8928 30 78 34 38
-1088  892C 30 0D 43 4F
-1088  8930 4C 4F 52 3A
-1088  8934 20 38 20 42
-1088  8938 50 50 20 2F
-1088  893C 20 49 4E 44
-1088  8940 45 58 45 44
-1088  8944 20 50 41 4C
-1088  8948 45 54 54 45
-1088  894C 0D 56 52 41
-1088  8950 4D 3A 20 33
-1088  8954 30 37 32 30
-1088  8958 30 20 42 59
-1088  895C 54 45 53 0D
-1088  8960 0D 00
-1089  8962 4D 4F 44 45  ModeLabel08: DEFM "MODE 08 OF 09",13,"RESOLUTION: 800x600",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 480000 BYTES",13,13,0
-1089  8966 20 30 38 20
-1089  896A 4F 46 20 30
-1089  896E 39 0D 52 45
-1089  8972 53 4F 4C 55
-1089  8976 54 49 4F 4E
-1089  897A 3A 20 38 30
-1089  897E 30 78 36 30
-1089  8982 30 0D 43 4F
-1089  8986 4C 4F 52 3A
-1089  898A 20 38 20 42
-1089  898E 50 50 20 2F
-1089  8992 20 49 4E 44
-1089  8996 45 58 45 44
-1089  899A 20 50 41 4C
-1089  899E 45 54 54 45
-1089  89A2 0D 56 52 41
-1089  89A6 4D 3A 20 34
-1089  89AA 38 30 30 30
-1089  89AE 30 20 42 59
-1089  89B2 54 45 53 0D
-1089  89B6 0D 00
-1090  89B8 4D 4F 44 45  ModeLabel09: DEFM "MODE 09 OF 09",13,"RESOLUTION: 1024x768",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 786432 BYTES",13,13,0
-1090  89BC 20 30 39 20
-1090  89C0 4F 46 20 30
-1090  89C4 39 0D 52 45
-1090  89C8 53 4F 4C 55
-1090  89CC 54 49 4F 4E
-1090  89D0 3A 20 31 30
-1090  89D4 32 34 78 37
-1090  89D8 36 38 0D 43
-1090  89DC 4F 4C 4F 52
-1090  89E0 3A 20 38 20
-1090  89E4 42 50 50 20
-1090  89E8 2F 20 49 4E
-1090  89EC 44 45 58 45
-1090  89F0 44 20 50 41
-1090  89F4 4C 45 54 54
-1090  89F8 45 0D 56 52
-1090  89FC 41 4D 3A 20
-1090  8A00 37 38 36 34
-1090  8A04 33 32 20 42
-1090  8A08 59 54 45 53
-1090  8A0C 0D 0D 00
-1091  8A0F
-1092  8A0F              ColorPattern:
-1093  8A0F                      ; Eight RGB565 colours, each repeated for eight adjacent pixels.
-1094  8A0F                      ; This makes eight visible bars, repeated across the 640-pixel row.
-1095  8A0F 00 00 00 00          DB $00,$00, $00,$00, $00,$00, $00,$00, $00,$00, $00,$00, $00,$00, $00,$00
-1095  8A13 00 00 00 00
-1095  8A17 00 00 00 00
-1095  8A1B 00 00 00 00
-1096  8A1F 1F 00 1F 00          DB $1F,$00, $1F,$00, $1F,$00, $1F,$00, $1F,$00, $1F,$00, $1F,$00, $1F,$00
-1096  8A23 1F 00 1F 00
-1096  8A27 1F 00 1F 00
-1096  8A2B 1F 00 1F 00
-1097  8A2F E0 07 E0 07          DB $E0,$07, $E0,$07, $E0,$07, $E0,$07, $E0,$07, $E0,$07, $E0,$07, $E0,$07
-1097  8A33 E0 07 E0 07
-1097  8A37 E0 07 E0 07
-1097  8A3B E0 07 E0 07
-1098  8A3F FF 07 FF 07          DB $FF,$07, $FF,$07, $FF,$07, $FF,$07, $FF,$07, $FF,$07, $FF,$07, $FF,$07
-1098  8A43 FF 07 FF 07
-1098  8A47 FF 07 FF 07
-1098  8A4B FF 07 FF 07
-1099  8A4F 00 F8 00 F8          DB $00,$F8, $00,$F8, $00,$F8, $00,$F8, $00,$F8, $00,$F8, $00,$F8, $00,$F8
-1099  8A53 00 F8 00 F8
-1099  8A57 00 F8 00 F8
-1099  8A5B 00 F8 00 F8
-1100  8A5F 1F F8 1F F8          DB $1F,$F8, $1F,$F8, $1F,$F8, $1F,$F8, $1F,$F8, $1F,$F8, $1F,$F8, $1F,$F8
-1100  8A63 1F F8 1F F8
-1100  8A67 1F F8 1F F8
-1100  8A6B 1F F8 1F F8
-1101  8A6F E0 FF E0 FF          DB $E0,$FF, $E0,$FF, $E0,$FF, $E0,$FF, $E0,$FF, $E0,$FF, $E0,$FF, $E0,$FF
-1101  8A73 E0 FF E0 FF
-1101  8A77 E0 FF E0 FF
-1101  8A7B E0 FF E0 FF
-1102  8A7F FF FF FF FF          DB $FF,$FF, $FF,$FF, $FF,$FF, $FF,$FF, $FF,$FF, $FF,$FF, $FF,$FF, $FF,$FF
-1102  8A83 FF FF FF FF
-1102  8A87 FF FF FF FF
-1102  8A8B FF FF FF FF
-1103  8A8F              ColorPatternEnd:
-1104  8A8F
-1105  8A8F 50 31 33 37  MsgBuild:        DEFM "P137 VGA TEST ATM710",13,10,0
-1105  8A93 20 56 47 41
-1105  8A97 20 54 45 53
-1105  8A9B 54 20 41 54
-1105  8A9F 4D 37 31 30
-1105  8AA3 0D 0A 00
-1106  8AA6 41 54 4D 20  MsgStart:        DEFM "ATM EXTERNAL VGA ADAPTER TEST START",13,10,0
-1106  8AAA 45 58 54 45
-1106  8AAE 52 4E 41 4C
-1106  8AB2 20 56 47 41
-1106  8AB6 20 41 44 41
-1106  8ABA 50 54 45 52
-1106  8ABE 20 54 45 53
-1106  8AC2 54 20 53 54
-1106  8AC6 41 52 54 0D
-1106  8ACA 0A 00
-1107  8ACC 56 47 41 20  MsgAdapterInit:  DEFM "VGA SOFTWARE MODE ON",13,10,0
-1107  8AD0 53 4F 46 54
-1107  8AD4 57 41 52 45
-1107  8AD8 20 4D 4F 44
-1107  8ADC 45 20 4F 4E
-1107  8AE0 0D 0A 00
-1108  8AE3 4D 4F 44 45  MsgModeSet:      DEFM "MODE 640X480 RGB565 SET",13,10,0
-1108  8AE7 20 36 34 30
-1108  8AEB 58 34 38 30
-1108  8AEF 20 52 47 42
-1108  8AF3 35 36 35 20
-1108  8AF7 53 45 54 0D
-1108  8AFB 0A 00
-1109  8AFD 56 52 41 4D  MsgFrameWritten: DEFM "VRAM 614400 BYTES WRITTEN",13,10,0
-1109  8B01 20 36 31 34
-1109  8B05 34 30 30 20
-1109  8B09 42 59 54 45
-1109  8B0D 53 20 57 52
-1109  8B11 49 54 54 45
-1109  8B15 4E 0D 0A 00
-1110  8B19 56 52 41 4D  MsgReadbackPass: DEFM "VRAM READBACK PASS",13,10,0
-1110  8B1D 20 52 45 41
-1110  8B21 44 42 41 43
-1110  8B25 4B 20 50 41
-1110  8B29 53 53 0D 0A
-1110  8B2D 00
-1111  8B2E 56 52 41 4D  MsgReadbackFail: DEFM "VRAM READBACK FAIL",13,10,0
-1111  8B32 20 52 45 41
-1111  8B36 44 42 41 43
-1111  8B3A 4B 20 46 41
-1111  8B3E 49 4C 0D 0A
-1111  8B42 00
-1112  8B43 56 47 41 20  MsgReady:        DEFM "VGA TEST COMPLETE - CHECK VGA WINDOW",13,10,0
-1112  8B47 54 45 53 54
-1112  8B4B 20 43 4F 4D
-1112  8B4F 50 4C 45 54
-1112  8B53 45 20 2D 20
-1112  8B57 43 48 45 43
-1112  8B5B 4B 20 56 47
-1112  8B5F 41 20 57 49
-1112  8B63 4E 44 4F 57
-1112  8B67 0D 0A 00
-1113  8B6A 56 47 41 20  MsgSweepStart:   DEFM "VGA RESOLUTION/PALETTE MATRIX START",13,10,0
-1113  8B6E 52 45 53 4F
-1113  8B72 4C 55 54 49
-1113  8B76 4F 4E 2F 50
-1113  8B7A 41 4C 45 54
-1113  8B7E 54 45 20 4D
-1113  8B82 41 54 52 49
-1113  8B86 58 20 53 54
-1113  8B8A 41 52 54 0D
-1113  8B8E 0A 00
-1114  8B90 4D 4F 44 45  MsgModePrefix:   DEFM "MODE ",0
-1114  8B94 20 00
-1115  8B96 20 42 50 50  MsgBppSuffix:    DEFM " BPP - INDEXED DAC PALETTE",13,10,0
-1115  8B9A 20 2D 20 49
-1115  8B9E 4E 44 45 58
-1115  8BA2 45 44 20 44
-1115  8BA6 41 43 20 50
-1115  8BAA 41 4C 45 54
-1115  8BAE 54 45 0D 0A
-1115  8BB2 00
-1116  8BB3 41 4C 4C 20  MsgSweepDone:    DEFM "ALL RESOLUTIONS AND PALETTES DONE",13,10,0
-1116  8BB7 52 45 53 4F
-1116  8BBB 4C 55 54 49
-1116  8BBF 4F 4E 53 20
-1116  8BC3 41 4E 44 20
-1116  8BC7 50 41 4C 45
-1116  8BCB 54 54 45 53
-1116  8BCF 20 44 4F 4E
-1116  8BD3 45 0D 0A 00
-1117  8BD7 50 41 4C 45  MsgPaletteLevel: DEFM "PALETTE LEVEL ",0
-1117  8BDB 54 54 45 20
-1117  8BDF 4C 45 56 45
-1117  8BE3 4C 20 00
-1118  8BE6 20 28 32 2F  MsgPaletteSuffix: DEFM " (2/4/16/256 COLORS - 8PX BARS)",13,10,0
-1118  8BEA 34 2F 31 36
-1118  8BEE 2F 32 35 36
-1118  8BF2 20 43 4F 4C
-1118  8BF6 4F 52 53 20
-1118  8BFA 2D 20 38 50
-1118  8BFE 58 20 42 41
-1118  8C02 52 53 29 0D
-1118  8C06 0A 00
-1119  8C08 44 41 43 20  MsgPalettePass:  DEFM "DAC READBACK PASS",13,10,0
-1119  8C0C 52 45 41 44
-1119  8C10 42 41 43 4B
-1119  8C14 20 50 41 53
-1119  8C18 53 0D 0A 00
-1120  8C1C 44 41 43 20  MsgPaletteFail:  DEFM "DAC READBACK FAIL",13,10,0
-1120  8C20 52 45 41 44
-1120  8C24 42 41 43 4B
-1120  8C28 20 46 41 49
-1120  8C2C 4C 0D 0A 00
-1121  8C30              ; Retained for the standalone legacy DAC routine below (not called by main).
-1122  8C30 32 35 36 2D  MsgDacStart:     DEFM "256-ENTRY RGB332 DAC PROGRAMMING",13,10,0
-1122  8C34 45 4E 54 52
-1122  8C38 59 20 52 47
-1122  8C3C 42 33 33 32
-1122  8C40 20 44 41 43
-1122  8C44 20 50 52 4F
-1122  8C48 47 52 41 4D
-1122  8C4C 4D 49 4E 47
-1122  8C50 0D 0A 00
-1123  8C53 32 35 36 2D  MsgDacPass:      DEFM "256-ENTRY DAC READBACK PASS",13,10,0
-1123  8C57 45 4E 54 52
-1123  8C5B 59 20 44 41
-1123  8C5F 43 20 52 45
-1123  8C63 41 44 42 41
-1123  8C67 43 4B 20 50
-1123  8C6B 41 53 53 0D
-1123  8C6F 0A 00
-1124  8C71 32 35 36 2D  MsgDacFail:      DEFM "256-ENTRY DAC READBACK FAIL",13,10,0
-1124  8C75 45 4E 54 52
-1124  8C79 59 20 44 41
-1124  8C7D 43 20 52 45
-1124  8C81 41 44 42 41
-1124  8C85 43 4B 20 46
-1124  8C89 41 49 4C 0D
-1124  8C8D 0A 00
-1125  8C8F
-1126  8C8F
-1127  8C8F 50 52 4F 4A  ScreenTitle:       DEFM "PROJECT137 - VGA ADAPTER TEST",13,13,0
-1127  8C93 45 43 54 31
-1127  8C97 33 37 20 2D
-1127  8C9B 20 56 47 41
-1127  8C9F 20 41 44 41
-1127  8CA3 50 54 45 52
-1127  8CA7 20 54 45 53
-1127  8CAB 54 0D 0D 00
-1128  8CAF 53 54 41 52  ScreenStarting:    DEFM "STARTING VGA TEST...",13,13,0
-1128  8CB3 54 49 4E 47
-1128  8CB7 20 56 47 41
-1128  8CBB 20 54 45 53
-1128  8CBF 54 2E 2E 2E
-1128  8CC3 0D 0D 00
-1129  8CC6 41 54 4D 20  ScreenShadowReady: DEFM "ATM SHADOW PORTS OPENED",13,13,0
-1129  8CCA 53 48 41 44
-1129  8CCE 4F 57 20 50
-1129  8CD2 4F 52 54 53
-1129  8CD6 20 4F 50 45
-1129  8CDA 4E 45 44 0D
-1129  8CDE 0D 00
-1130  8CE0 41 43 54 49  ScreenModeHeading: DEFM "ACTIVE VGA MODE:",13,13,0
-1130  8CE4 56 45 20 56
-1130  8CE8 47 41 20 4D
-1130  8CEC 4F 44 45 3A
-1130  8CF0 0D 0D 00
-1131  8CF3 49 4E 49 54  ScreenInitialMode: DEFM "INITIAL TEST 640x480",13,"COLOR: 16 BPP / RGB565",13,13,0
-1131  8CF7 49 41 4C 20
-1131  8CFB 54 45 53 54
-1131  8CFF 20 36 34 30
-1131  8D03 78 34 38 30
-1131  8D07 0D 43 4F 4C
-1131  8D0B 4F 52 3A 20
-1131  8D0F 31 36 20 42
-1131  8D13 50 50 20 2F
-1131  8D17 20 52 47 42
-1131  8D1B 35 36 35 0D
-1131  8D1F 0D 00
-1132  8D21 54 45 53 54  ScreenInitialTestRunning: DEFM "TEST: WRITE FRAMEBUFFER",13,"VRAM: 614400 BYTES",13,0
-1132  8D25 3A 20 57 52
-1132  8D29 49 54 45 20
-1132  8D2D 46 52 41 4D
-1132  8D31 45 42 55 46
-1132  8D35 46 45 52 0D
-1132  8D39 56 52 41 4D
-1132  8D3D 3A 20 36 31
-1132  8D41 34 34 30 30
-1132  8D45 20 42 59 54
-1132  8D49 45 53 0D 00
-1133  8D4D 54 45 53 54  ScreenTestRunning: DEFM "TEST: WRITE FRAMEBUFFER",13,0
-1133  8D51 3A 20 57 52
-1133  8D55 49 54 45 20
-1133  8D59 46 52 41 4D
-1133  8D5D 45 42 55 46
-1133  8D61 46 45 52 0D
-1133  8D65 00
-1134  8D66 53 54 41 54  ScreenWriteRunning: DEFM "STATUS: WRITING - PLEASE WAIT",13,13,0
-1134  8D6A 55 53 3A 20
-1134  8D6E 57 52 49 54
-1134  8D72 49 4E 47 20
-1134  8D76 2D 20 50 4C
-1134  8D7A 45 41 53 45
-1134  8D7E 20 57 41 49
-1134  8D82 54 0D 0D 00
-1135  8D86 53 54 41 54  ScreenWritePassed: DEFM "STATUS: WRITE COMPLETE",13,13,0
-1135  8D8A 55 53 3A 20
-1135  8D8E 57 52 49 54
-1135  8D92 45 20 43 4F
-1135  8D96 4D 50 4C 45
-1135  8D9A 54 45 0D 0D
-1135  8D9E 00
-1136  8D9F 50 52 45 53  ScreenNextHint: DEFM "PRESS SPACE FOR NEXT TEST",13,"WAITING FOR SPACE...",0
-1136  8DA3 53 20 53 50
-1136  8DA7 41 43 45 20
-1136  8DAB 46 4F 52 20
-1136  8DAF 4E 45 58 54
-1136  8DB3 20 54 45 53
-1136  8DB7 54 0D 57 41
-1136  8DBB 49 54 49 4E
-1136  8DBF 47 20 46 4F
-1136  8DC3 52 20 53 50
-1136  8DC7 41 43 45 2E
-1136  8DCB 2E 2E 00
-1137  8DCE 39 20 52 45  ScreenAllDone: DEFM "9 RESOLUTIONS x 4 PALETTES",13,13,"TEST COMPLETE",0
-1137  8DD2 53 4F 4C 55
-1137  8DD6 54 49 4F 4E
-1137  8DDA 53 20 78 20
-1137  8DDE 34 20 50 41
-1137  8DE2 4C 45 54 54
-1137  8DE6 45 53 0D 0D
-1137  8DEA 54 45 53 54
-1137  8DEE 20 43 4F 4D
-1137  8DF2 50 4C 45 54
-1137  8DF6 45 00
-1138  8DF8 49 4E 44 45  ScreenDacHeading: DEFM "INDEXED VGA PALETTE TEST",13,13,0
-1138  8DFC 58 45 44 20
-1138  8E00 56 47 41 20
-1138  8E04 50 41 4C 45
-1138  8E08 54 54 45 20
-1138  8E0C 54 45 53 54
-1138  8E10 0D 0D 00
-1139  8E13 50 41 4C 45  ScreenDacWriting: DEFM "PALETTE: SELECTED COLOR COUNT",13,"PATTERN: 8-PIXEL COLOR BARS",13,"STATUS: PROGRAMMING + READBACK",0
-1139  8E17 54 54 45 3A
-1139  8E1B 20 53 45 4C
-1139  8E1F 45 43 54 45
-1139  8E23 44 20 43 4F
-1139  8E27 4C 4F 52 20
-1139  8E2B 43 4F 55 4E
-1139  8E2F 54 0D 50 41
-1139  8E33 54 54 45 52
-1139  8E37 4E 3A 20 38
-1139  8E3B 2D 50 49 58
-1139  8E3F 45 4C 20 43
-1139  8E43 4F 4C 4F 52
-1139  8E47 20 42 41 52
-1139  8E4B 53 0D 53 54
-1139  8E4F 41 54 55 53
-1139  8E53 3A 20 50 52
-1139  8E57 4F 47 52 41
-1139  8E5B 4D 4D 49 4E
-1139  8E5F 47 20 2B 20
-1139  8E63 52 45 41 44
-1139  8E67 42 41 43 4B
-1139  8E6B 00
-1140  8E6C 50 41 4C 45  ScreenDacPassed: DEFM "PALETTE: 256 RGB COLORS",13,"DAC READBACK: PASS (768 BYTES)",0
-1140  8E70 54 54 45 3A
-1140  8E74 20 32 35 36
-1140  8E78 20 52 47 42
-1140  8E7C 20 43 4F 4C
-1140  8E80 4F 52 53 0D
-1140  8E84 44 41 43 20
-1140  8E88 52 45 41 44
-1140  8E8C 42 41 43 4B
-1140  8E90 3A 20 50 41
-1140  8E94 53 53 20 28
-1140  8E98 37 36 38 20
-1140  8E9C 42 59 54 45
-1140  8EA0 53 29 00
-1141  8EA3 44 41 43 20  ScreenDacFailed: DEFM "DAC PALETTE READBACK: FAIL",13,"CHECK PORTS 3C7h / 3C9h",0
-1141  8EA7 50 41 4C 45
-1141  8EAB 54 54 45 20
-1141  8EAF 52 45 41 44
-1141  8EB3 42 41 43 4B
-1141  8EB7 3A 20 46 41
-1141  8EBB 49 4C 0D 43
-1141  8EBF 48 45 43 4B
-1141  8EC3 20 50 4F 52
-1141  8EC7 54 53 20 33
-1141  8ECB 43 37 68 20
-1141  8ECF 2F 20 33 43
-1141  8ED3 39 68 00
-1142  8ED6
-1143  8ED6              Dac332Palette:
-1144  8ED6 00 00 00 3F          DB $00,$00,$00,$3F,$3F,$3F,$3F,$00,$00,$00,$3F,$00,$00,$00,$2A,$00,$2A,$2A,$2A,$00,$2A,$2A,$15,$00,$15,$15,$15,$15,$15,$3F,$15,$3F,$15,$15,$3F,$3F,$3F,$15,$15,$3F,$15,$3F,$3F,$3F,$15,$3F,$3F,$3F
-1144  8EDA 3F 3F 3F 00
-1144  8EDE 00 00 3F 00
-1144  8EE2 00 00 2A 00
-1144  8EE6 2A 2A 2A 00
-1144  8EEA 2A 2A 15 00
-1144  8EEE 15 15 15 15
-1144  8EF2 15 3F 15 3F
-1144  8EF6 15 15 3F 3F
-1144  8EFA 3F 15 15 3F
-1144  8EFE 15 3F 3F 3F
-1144  8F02 15 3F 3F 3F
-1145  8F06 09 15 00 09          DB $09,$15,$00,$09,$2A,$00,$09,$3F,$00,$12,$00,$00,$12,$15,$00,$12
-1145  8F0A 2A 00 09 3F
-1145  8F0E 00 12 00 00
-1145  8F12 12 15 00 12
-1146  8F16 2A 00 12 3F          DB $2A,$00,$12,$3F,$00,$1B,$00,$00,$1B,$15,$00,$1B,$2A,$00,$1B,$3F
-1146  8F1A 00 1B 00 00
-1146  8F1E 1B 15 00 1B
-1146  8F22 2A 00 1B 3F
-1147  8F26 00 24 00 00          DB $00,$24,$00,$00,$24,$15,$00,$24,$2A,$00,$24,$3F,$00,$2D,$00,$00
-1147  8F2A 24 15 00 24
-1147  8F2E 2A 00 24 3F
-1147  8F32 00 2D 00 00
-1148  8F36 2D 15 00 2D          DB $2D,$15,$00,$2D,$2A,$00,$2D,$3F,$00,$36,$00,$00,$36,$15,$00,$36
-1148  8F3A 2A 00 2D 3F
-1148  8F3E 00 36 00 00
-1148  8F42 36 15 00 36
-1149  8F46 2A 00 36 3F          DB $2A,$00,$36,$3F,$00,$3F,$00,$00,$3F,$15,$00,$3F,$2A,$00,$3F,$3F
-1149  8F4A 00 3F 00 00
-1149  8F4E 3F 15 00 3F
-1149  8F52 2A 00 3F 3F
-1150  8F56 09 00 00 09          DB $09,$00,$00,$09,$00,$15,$09,$00,$2A,$09,$00,$3F,$09,$09,$00,$09
-1150  8F5A 00 15 09 00
-1150  8F5E 2A 09 00 3F
-1150  8F62 09 09 00 09
-1151  8F66 09 15 09 09          DB $09,$15,$09,$09,$2A,$09,$09,$3F,$09,$12,$00,$09,$12,$15,$09,$12
-1151  8F6A 2A 09 09 3F
-1151  8F6E 09 12 00 09
-1151  8F72 12 15 09 12
-1152  8F76 2A 09 12 3F          DB $2A,$09,$12,$3F,$09,$1B,$00,$09,$1B,$15,$09,$1B,$2A,$09,$1B,$3F
-1152  8F7A 09 1B 00 09
-1152  8F7E 1B 15 09 1B
-1152  8F82 2A 09 1B 3F
-1153  8F86 09 24 00 09          DB $09,$24,$00,$09,$24,$15,$09,$24,$2A,$09,$24,$3F,$09,$2D,$00,$09
-1153  8F8A 24 15 09 24
-1153  8F8E 2A 09 24 3F
-1153  8F92 09 2D 00 09
-1154  8F96 2D 15 09 2D          DB $2D,$15,$09,$2D,$2A,$09,$2D,$3F,$09,$36,$00,$09,$36,$15,$09,$36
-1154  8F9A 2A 09 2D 3F
-1154  8F9E 09 36 00 09
-1154  8FA2 36 15 09 36
-1155  8FA6 2A 09 36 3F          DB $2A,$09,$36,$3F,$09,$3F,$00,$09,$3F,$15,$09,$3F,$2A,$09,$3F,$3F
-1155  8FAA 09 3F 00 09
-1155  8FAE 3F 15 09 3F
-1155  8FB2 2A 09 3F 3F
-1156  8FB6 12 00 00 12          DB $12,$00,$00,$12,$00,$15,$12,$00,$2A,$12,$00,$3F,$12,$09,$00,$12
-1156  8FBA 00 15 12 00
-1156  8FBE 2A 12 00 3F
-1156  8FC2 12 09 00 12
-1157  8FC6 09 15 12 09          DB $09,$15,$12,$09,$2A,$12,$09,$3F,$12,$12,$00,$12,$12,$15,$12,$12
-1157  8FCA 2A 12 09 3F
-1157  8FCE 12 12 00 12
-1157  8FD2 12 15 12 12
-1158  8FD6 2A 12 12 3F          DB $2A,$12,$12,$3F,$12,$1B,$00,$12,$1B,$15,$12,$1B,$2A,$12,$1B,$3F
-1158  8FDA 12 1B 00 12
-1158  8FDE 1B 15 12 1B
-1158  8FE2 2A 12 1B 3F
-1159  8FE6 12 24 00 12          DB $12,$24,$00,$12,$24,$15,$12,$24,$2A,$12,$24,$3F,$12,$2D,$00,$12
-1159  8FEA 24 15 12 24
-1159  8FEE 2A 12 24 3F
-1159  8FF2 12 2D 00 12
-1160  8FF6 2D 15 12 2D          DB $2D,$15,$12,$2D,$2A,$12,$2D,$3F,$12,$36,$00,$12,$36,$15,$12,$36
-1160  8FFA 2A 12 2D 3F
-1160  8FFE 12 36 00 12
-1160  9002 36 15 12 36
-1161  9006 2A 12 36 3F          DB $2A,$12,$36,$3F,$12,$3F,$00,$12,$3F,$15,$12,$3F,$2A,$12,$3F,$3F
-1161  900A 12 3F 00 12
-1161  900E 3F 15 12 3F
-1161  9012 2A 12 3F 3F
-1162  9016 1B 00 00 1B          DB $1B,$00,$00,$1B,$00,$15,$1B,$00,$2A,$1B,$00,$3F,$1B,$09,$00,$1B
-1162  901A 00 15 1B 00
-1162  901E 2A 1B 00 3F
-1162  9022 1B 09 00 1B
-1163  9026 09 15 1B 09          DB $09,$15,$1B,$09,$2A,$1B,$09,$3F,$1B,$12,$00,$1B,$12,$15,$1B,$12
-1163  902A 2A 1B 09 3F
-1163  902E 1B 12 00 1B
-1163  9032 12 15 1B 12
-1164  9036 2A 1B 12 3F          DB $2A,$1B,$12,$3F,$1B,$1B,$00,$1B,$1B,$15,$1B,$1B,$2A,$1B,$1B,$3F
-1164  903A 1B 1B 00 1B
-1164  903E 1B 15 1B 1B
-1164  9042 2A 1B 1B 3F
-1165  9046 1B 24 00 1B          DB $1B,$24,$00,$1B,$24,$15,$1B,$24,$2A,$1B,$24,$3F,$1B,$2D,$00,$1B
-1165  904A 24 15 1B 24
-1165  904E 2A 1B 24 3F
-1165  9052 1B 2D 00 1B
-1166  9056 2D 15 1B 2D          DB $2D,$15,$1B,$2D,$2A,$1B,$2D,$3F,$1B,$36,$00,$1B,$36,$15,$1B,$36
-1166  905A 2A 1B 2D 3F
-1166  905E 1B 36 00 1B
-1166  9062 36 15 1B 36
-1167  9066 2A 1B 36 3F          DB $2A,$1B,$36,$3F,$1B,$3F,$00,$1B,$3F,$15,$1B,$3F,$2A,$1B,$3F,$3F
-1167  906A 1B 3F 00 1B
-1167  906E 3F 15 1B 3F
-1167  9072 2A 1B 3F 3F
-1168  9076 24 00 00 24          DB $24,$00,$00,$24,$00,$15,$24,$00,$2A,$24,$00,$3F,$24,$09,$00,$24
-1168  907A 00 15 24 00
-1168  907E 2A 24 00 3F
-1168  9082 24 09 00 24
-1169  9086 09 15 24 09          DB $09,$15,$24,$09,$2A,$24,$09,$3F,$24,$12,$00,$24,$12,$15,$24,$12
-1169  908A 2A 24 09 3F
-1169  908E 24 12 00 24
-1169  9092 12 15 24 12
-1170  9096 2A 24 12 3F          DB $2A,$24,$12,$3F,$24,$1B,$00,$24,$1B,$15,$24,$1B,$2A,$24,$1B,$3F
-1170  909A 24 1B 00 24
-1170  909E 1B 15 24 1B
-1170  90A2 2A 24 1B 3F
-1171  90A6 24 24 00 24          DB $24,$24,$00,$24,$24,$15,$24,$24,$2A,$24,$24,$3F,$24,$2D,$00,$24
-1171  90AA 24 15 24 24
-1171  90AE 2A 24 24 3F
-1171  90B2 24 2D 00 24
-1172  90B6 2D 15 24 2D          DB $2D,$15,$24,$2D,$2A,$24,$2D,$3F,$24,$36,$00,$24,$36,$15,$24,$36
-1172  90BA 2A 24 2D 3F
-1172  90BE 24 36 00 24
-1172  90C2 36 15 24 36
-1173  90C6 2A 24 36 3F          DB $2A,$24,$36,$3F,$24,$3F,$00,$24,$3F,$15,$24,$3F,$2A,$24,$3F,$3F
-1173  90CA 24 3F 00 24
-1173  90CE 3F 15 24 3F
-1173  90D2 2A 24 3F 3F
-1174  90D6 2D 00 00 2D          DB $2D,$00,$00,$2D,$00,$15,$2D,$00,$2A,$2D,$00,$3F,$2D,$09,$00,$2D
-1174  90DA 00 15 2D 00
-1174  90DE 2A 2D 00 3F
-1174  90E2 2D 09 00 2D
-1175  90E6 09 15 2D 09          DB $09,$15,$2D,$09,$2A,$2D,$09,$3F,$2D,$12,$00,$2D,$12,$15,$2D,$12
-1175  90EA 2A 2D 09 3F
-1175  90EE 2D 12 00 2D
-1175  90F2 12 15 2D 12
-1176  90F6 2A 2D 12 3F          DB $2A,$2D,$12,$3F,$2D,$1B,$00,$2D,$1B,$15,$2D,$1B,$2A,$2D,$1B,$3F
-1176  90FA 2D 1B 00 2D
-1176  90FE 1B 15 2D 1B
-1176  9102 2A 2D 1B 3F
-1177  9106 2D 24 00 2D          DB $2D,$24,$00,$2D,$24,$15,$2D,$24,$2A,$2D,$24,$3F,$2D,$2D,$00,$2D
-1177  910A 24 15 2D 24
-1177  910E 2A 2D 24 3F
-1177  9112 2D 2D 00 2D
-1178  9116 2D 15 2D 2D          DB $2D,$15,$2D,$2D,$2A,$2D,$2D,$3F,$2D,$36,$00,$2D,$36,$15,$2D,$36
-1178  911A 2A 2D 2D 3F
-1178  911E 2D 36 00 2D
-1178  9122 36 15 2D 36
-1179  9126 2A 2D 36 3F          DB $2A,$2D,$36,$3F,$2D,$3F,$00,$2D,$3F,$15,$2D,$3F,$2A,$2D,$3F,$3F
-1179  912A 2D 3F 00 2D
-1179  912E 3F 15 2D 3F
-1179  9132 2A 2D 3F 3F
-1180  9136 36 00 00 36          DB $36,$00,$00,$36,$00,$15,$36,$00,$2A,$36,$00,$3F,$36,$09,$00,$36
-1180  913A 00 15 36 00
-1180  913E 2A 36 00 3F
-1180  9142 36 09 00 36
-1181  9146 09 15 36 09          DB $09,$15,$36,$09,$2A,$36,$09,$3F,$36,$12,$00,$36,$12,$15,$36,$12
-1181  914A 2A 36 09 3F
-1181  914E 36 12 00 36
-1181  9152 12 15 36 12
-1182  9156 2A 36 12 3F          DB $2A,$36,$12,$3F,$36,$1B,$00,$36,$1B,$15,$36,$1B,$2A,$36,$1B,$3F
-1182  915A 36 1B 00 36
-1182  915E 1B 15 36 1B
-1182  9162 2A 36 1B 3F
-1183  9166 36 24 00 36          DB $36,$24,$00,$36,$24,$15,$36,$24,$2A,$36,$24,$3F,$36,$2D,$00,$36
-1183  916A 24 15 36 24
-1183  916E 2A 36 24 3F
-1183  9172 36 2D 00 36
-1184  9176 2D 15 36 2D          DB $2D,$15,$36,$2D,$2A,$36,$2D,$3F,$36,$36,$00,$36,$36,$15,$36,$36
-1184  917A 2A 36 2D 3F
-1184  917E 36 36 00 36
-1184  9182 36 15 36 36
-1185  9186 2A 36 36 3F          DB $2A,$36,$36,$3F,$36,$3F,$00,$36,$3F,$15,$36,$3F,$2A,$36,$3F,$3F
-1185  918A 36 3F 00 36
-1185  918E 3F 15 36 3F
-1185  9192 2A 36 3F 3F
-1186  9196 3F 00 00 3F          DB $3F,$00,$00,$3F,$00,$15,$3F,$00,$2A,$3F,$00,$3F,$3F,$09,$00,$3F
-1186  919A 00 15 3F 00
-1186  919E 2A 3F 00 3F
-1186  91A2 3F 09 00 3F
-1187  91A6 09 15 3F 09          DB $09,$15,$3F,$09,$2A,$3F,$09,$3F,$3F,$12,$00,$3F,$12,$15,$3F,$12
-1187  91AA 2A 3F 09 3F
-1187  91AE 3F 12 00 3F
-1187  91B2 12 15 3F 12
-1188  91B6 2A 3F 12 3F          DB $2A,$3F,$12,$3F,$3F,$1B,$00,$3F,$1B,$15,$3F,$1B,$2A,$3F,$1B,$3F
-1188  91BA 3F 1B 00 3F
-1188  91BE 1B 15 3F 1B
-1188  91C2 2A 3F 1B 3F
-1189  91C6 3F 24 00 3F          DB $3F,$24,$00,$3F,$24,$15,$3F,$24,$2A,$3F,$24,$3F,$3F,$2D,$00,$3F
-1189  91CA 24 15 3F 24
-1189  91CE 2A 3F 24 3F
-1189  91D2 3F 2D 00 3F
-1190  91D6 2D 15 3F 2D          DB $2D,$15,$3F,$2D,$2A,$3F,$2D,$3F,$3F,$36,$00,$3F,$36,$15,$3F,$36
-1190  91DA 2A 3F 2D 3F
-1190  91DE 3F 36 00 3F
-1190  91E2 36 15 3F 36
-1191  91E6 2A 3F 36 3F          DB $2A,$3F,$36,$3F,$3F,$3F,$00,$3F,$3F,$15,$3F,$3F,$2A,$3F,$3F,$3F
-1191  91EA 3F 3F 00 3F
-1191  91EE 3F 15 3F 3F
-1191  91F2 2A 3F 3F 3F
-1192  91F6              Dac332PaletteEnd:
-1193  91F6
-1194  91F6              ; Exact 768-byte font from Project112/src/font88.bin.
-1195  91F6              Font88_132:
-1196  91F6 00 00 00 00          DB      $00,$00,$00,$00,$00,$00,$00,$00,$00,$08,$08,$08,$08,$00,$08,$00
-1196  91FA 00 00 00 00
-1196  91FE 00 08 08 08
-1196  9202 08 00 08 00
-1197  9206 00 00 00 14          DB      $00,$00,$00,$14,$14,$00,$00,$00,$0C,$14,$3E,$14,$3E,$18,$28,$00
-1197  920A 14 00 00 00
-1197  920E 0C 14 3E 14
-1197  9212 3E 18 28 00
-1198  9216 08 3E 28 1C          DB      $08,$3E,$28,$1C,$0A,$3E,$08,$00,$00,$38,$28,$3C,$1E,$0A,$0E,$00
-1198  921A 0A 3E 08 00
-1198  921E 00 38 28 3C
-1198  9222 1E 0A 0E 00
-1199  9226 00 0E 08 0C          DB      $00,$0E,$08,$0C,$16,$14,$0E,$00,$00,$00,$00,$08,$08,$00,$00,$00
-1199  922A 16 14 0E 00
-1199  922E 00 00 00 08
-1199  9232 08 00 00 00
-1200  9236 04 08 08 08          DB      $04,$08,$08,$08,$08,$08,$04,$00,$08,$04,$04,$04,$04,$04,$08,$00
-1200  923A 08 08 04 00
-1200  923E 08 04 04 04
-1200  9242 04 04 08 00
-1201  9246 00 00 2A 1C          DB      $00,$00,$2A,$1C,$1C,$2A,$00,$00,$00,$08,$08,$3E,$08,$08,$00,$00
-1201  924A 1C 2A 00 00
-1201  924E 00 08 08 3E
-1201  9252 08 08 00 00
-1202  9256 00 00 00 08          DB      $00,$00,$00,$08,$08,$00,$00,$00,$00,$00,$00,$0C,$00,$00,$00,$00
-1202  925A 08 00 00 00
-1202  925E 00 00 00 0C
-1202  9262 00 00 00 00
-1203  9266 00 00 00 08          DB      $00,$00,$00,$08,$00,$00,$00,$00,$02,$04,$04,$0C,$08,$08,$10,$00
-1203  926A 00 00 00 00
-1203  926E 02 04 04 0C
-1203  9272 08 08 10 00
-1204  9276 00 0C 12 1A          DB      $00,$0C,$12,$1A,$12,$12,$0C,$00,$00,$18,$08,$08,$08,$08,$1C,$00
-1204  927A 12 12 0C 00
-1204  927E 00 18 08 08
-1204  9282 08 08 1C 00
-1205  9286 00 1C 02 02          DB      $00,$1C,$02,$02,$04,$08,$1E,$00,$00,$1C,$02,$02,$0C,$02,$1E,$00
-1205  928A 04 08 1E 00
-1205  928E 00 1C 02 02
-1205  9292 0C 02 1E 00
-1206  9296 00 04 0C 0C          DB      $00,$04,$0C,$0C,$14,$1E,$04,$00,$00,$1E,$10,$1C,$02,$02,$1C,$00
-1206  929A 14 1E 04 00
-1206  929E 00 1E 10 1C
-1206  92A2 02 02 1C 00
-1207  92A6 00 0E 18 10          DB      $00,$0E,$18,$10,$1E,$12,$0E,$00,$00,$1E,$02,$04,$04,$04,$08,$00
-1207  92AA 1E 12 0E 00
-1207  92AE 00 1E 02 04
-1207  92B2 04 04 08 00
-1208  92B6 00 0C 12 12          DB      $00,$0C,$12,$12,$0C,$12,$1E,$00,$00,$1C,$12,$1E,$02,$06,$1C,$00
-1208  92BA 0C 12 1E 00
-1208  92BE 00 1C 12 1E
-1208  92C2 02 06 1C 00
-1209  92C6 00 00 08 00          DB      $00,$00,$08,$00,$00,$08,$00,$00,$00,$08,$00,$00,$08,$08,$00,$00
-1209  92CA 00 08 00 00
-1209  92CE 00 08 00 00
-1209  92D2 08 08 00 00
-1210  92D6 00 00 02 1C          DB      $00,$00,$02,$1C,$18,$06,$00,$00,$00,$00,$1E,$00,$1E,$00,$00,$00
-1210  92DA 18 06 00 00
-1210  92DE 00 00 1E 00
-1210  92E2 1E 00 00 00
-1211  92E6 00 00 10 0E          DB      $00,$00,$10,$0E,$06,$18,$00,$00,$00,$1C,$0C,$08,$08,$00,$08,$00
-1211  92EA 06 18 00 00
-1211  92EE 00 1C 0C 08
-1211  92F2 08 00 08 00
-1212  92F6 00 0C 12 16          DB      $00,$0C,$12,$16,$16,$10,$0C,$00,$00,$0C,$0C,$0C,$0C,$1E,$12,$00
-1212  92FA 16 10 0C 00
-1212  92FE 00 0C 0C 0C
-1212  9302 0C 1E 12 00
-1213  9306 00 1C 12 12          DB      $00,$1C,$12,$12,$1C,$12,$1E,$00,$00,$0E,$10,$10,$10,$10,$0E,$00
-1213  930A 1C 12 1E 00
-1213  930E 00 0E 10 10
-1213  9312 10 10 0E 00
-1214  9316 00 1C 12 12          DB      $00,$1C,$12,$12,$12,$12,$1C,$00,$00,$1E,$10,$10,$1E,$10,$1E,$00
-1214  931A 12 12 1C 00
-1214  931E 00 1E 10 10
-1214  9322 1E 10 1E 00
-1215  9326 00 1E 10 10          DB      $00,$1E,$10,$10,$1E,$10,$10,$00,$00,$0E,$10,$10,$16,$12,$0E,$00
-1215  932A 1E 10 10 00
-1215  932E 00 0E 10 10
-1215  9332 16 12 0E 00
-1216  9336 00 12 12 12          DB      $00,$12,$12,$12,$1E,$12,$12,$00,$00,$1C,$08,$08,$08,$08,$1C,$00
-1216  933A 1E 12 12 00
-1216  933E 00 1C 08 08
-1216  9342 08 08 1C 00
-1217  9346 00 0C 04 04          DB      $00,$0C,$04,$04,$04,$04,$1C,$00,$00,$12,$14,$18,$14,$14,$12,$00
-1217  934A 04 04 1C 00
-1217  934E 00 12 14 18
-1217  9352 14 14 12 00
-1218  9356 00 10 10 10          DB      $00,$10,$10,$10,$10,$10,$1E,$00,$00,$12,$1E,$1E,$1E,$12,$12,$00
-1218  935A 10 10 1E 00
-1218  935E 00 12 1E 1E
-1218  9362 1E 12 12 00
-1219  9366 00 12 1A 1A          DB      $00,$12,$1A,$1A,$16,$16,$12,$00,$00,$0C,$12,$12,$12,$12,$0C,$00
-1219  936A 16 16 12 00
-1219  936E 00 0C 12 12
-1219  9372 12 12 0C 00
-1220  9376 00 1E 12 1E          DB      $00,$1E,$12,$1E,$10,$10,$10,$00,$0C,$12,$12,$12,$12,$0C,$02,$00
-1220  937A 10 10 10 00
-1220  937E 0C 12 12 12
-1220  9382 12 0C 02 00
-1221  9386 00 3C 24 38          DB      $00,$3C,$24,$38,$2C,$24,$22,$00,$00,$0E,$10,$1C,$06,$02,$1E,$00
-1221  938A 2C 24 22 00
-1221  938E 00 0E 10 1C
-1221  9392 06 02 1E 00
-1222  9396 00 3E 08 08          DB      $00,$3E,$08,$08,$08,$08,$08,$00,$00,$12,$12,$12,$12,$12,$0C,$00
-1222  939A 08 08 08 00
-1222  939E 00 12 12 12
-1222  93A2 12 12 0C 00
-1223  93A6 00 12 12 0C          DB      $00,$12,$12,$0C,$0C,$0C,$0C,$00,$00,$22,$22,$2A,$14,$14,$14,$00
-1223  93AA 0C 0C 0C 00
-1223  93AE 00 22 22 2A
-1223  93B2 14 14 14 00
-1224  93B6 00 12 0C 0C          DB      $00,$12,$0C,$0C,$0C,$0C,$12,$00,$00,$22,$14,$08,$08,$08,$08,$00
-1224  93BA 0C 0C 12 00
-1224  93BE 00 22 14 08
-1224  93C2 08 08 08 00
-1225  93C6 00 1E 04 04          DB      $00,$1E,$04,$04,$08,$08,$1E,$00,$0C,$08,$08,$08,$08,$08,$0C,$00
-1225  93CA 08 08 1E 00
-1225  93CE 0C 08 08 08
-1225  93D2 08 08 0C 00
-1226  93D6 10 08 08 0C          DB      $10,$08,$08,$0C,$04,$04,$02,$00,$0C,$04,$04,$04,$04,$04,$0C,$00
-1226  93DA 04 04 02 00
-1226  93DE 0C 04 04 04
-1226  93E2 04 04 0C 00
-1227  93E6 00 00 00 0C          DB      $00,$00,$00,$0C,$12,$00,$00,$00,$00,$00,$00,$3E,$00,$00,$00,$00
-1227  93EA 12 00 00 00
-1227  93EE 00 00 00 3E
-1227  93F2 00 00 00 00
-1228  93F6 00 00 00 08          DB      $00,$00,$00,$08,$00,$00,$00,$00,$00,$00,$1E,$1E,$12,$1E,$00,$00
-1228  93FA 00 00 00 00
-1228  93FE 00 00 1E 1E
-1228  9402 12 1E 00 00
-1229  9406 10 10 10 1C          DB      $10,$10,$10,$1C,$12,$12,$1C,$00,$00,$00,$0C,$10,$10,$0C,$00,$00
-1229  940A 12 12 1C 00
-1229  940E 00 00 0C 10
-1229  9412 10 0C 00 00
-1230  9416 02 02 02 0E          DB      $02,$02,$02,$0E,$12,$12,$0E,$00,$00,$00,$0E,$1E,$10,$0E,$00,$00
-1230  941A 12 12 0E 00
-1230  941E 00 00 0E 1E
-1230  9422 10 0E 00 00
-1231  9426 06 08 08 1E          DB      $06,$08,$08,$1E,$08,$08,$08,$00,$00,$0E,$12,$12,$0E,$02,$1C,$00
-1231  942A 08 08 08 00
-1231  942E 00 0E 12 12
-1231  9432 0E 02 1C 00
-1232  9436 10 10 10 1E          DB      $10,$10,$10,$1E,$12,$12,$12,$00,$08,$00,$00,$18,$08,$08,$1C,$00
-1232  943A 12 12 12 00
-1232  943E 08 00 00 18
-1232  9442 08 08 1C 00
-1233  9446 04 00 00 0C          DB      $04,$00,$00,$0C,$04,$04,$04,$1C,$10,$10,$10,$16,$1C,$1C,$16,$00
-1233  944A 04 04 04 1C
-1233  944E 10 10 10 16
-1233  9452 1C 1C 16 00
-1234  9456 18 08 08 08          DB      $18,$08,$08,$08,$08,$08,$0E,$00,$00,$00,$3E,$2A,$2A,$2A,$00,$00
-1234  945A 08 08 0E 00
-1234  945E 00 00 3E 2A
-1234  9462 2A 2A 00 00
-1235  9466 00 00 1E 12          DB      $00,$00,$1E,$12,$12,$12,$00,$00,$00,$00,$0C,$12,$12,$0C,$00,$00
-1235  946A 12 12 00 00
-1235  946E 00 00 0C 12
-1235  9472 12 0C 00 00
-1236  9476 00 1C 12 12          DB      $00,$1C,$12,$12,$1C,$10,$10,$00,$00,$0E,$12,$12,$0E,$02,$02,$00
-1236  947A 1C 10 10 00
-1236  947E 00 0E 12 12
-1236  9482 0E 02 02 00
-1237  9486 00 00 1C 10          DB      $00,$00,$1C,$10,$10,$10,$00,$00,$00,$00,$1E,$1C,$02,$1E,$00,$00
-1237  948A 10 10 00 00
-1237  948E 00 00 1E 1C
-1237  9492 02 1E 00 00
-1238  9496 00 08 1E 08          DB      $00,$08,$1E,$08,$08,$0E,$00,$00,$00,$00,$12,$12,$12,$1E,$00,$00
-1238  949A 08 0E 00 00
-1238  949E 00 00 12 12
-1238  94A2 12 1E 00 00
-1239  94A6 00 00 12 0C          DB      $00,$00,$12,$0C,$0C,$0C,$00,$00,$00,$00,$22,$2A,$1C,$14,$00,$00
-1239  94AA 0C 0C 00 00
-1239  94AE 00 00 22 2A
-1239  94B2 1C 14 00 00
-1240  94B6 00 00 1E 0C          DB      $00,$00,$1E,$0C,$0C,$1E,$00,$00,$00,$12,$0C,$0C,$08,$08,$18,$00
-1240  94BA 0C 1E 00 00
-1240  94BE 00 12 0C 0C
-1240  94C2 08 08 18 00
-1241  94C6 00 00 1E 0C          DB      $00,$00,$1E,$0C,$08,$1E,$00,$00,$0C,$08,$08,$10,$08,$08,$0C,$00
-1241  94CA 08 1E 00 00
-1241  94CE 0C 08 08 10
-1241  94D2 08 08 0C 00
-1242  94D6 08 08 08 08          DB      $08,$08,$08,$08,$08,$08,$08,$08,$18,$08,$08,$04,$08,$08,$18,$00
-1242  94DA 08 08 08 08
-1242  94DE 18 08 08 04
-1242  94E2 08 08 18 00
-1243  94E6 00 00 00 1E          DB      $00,$00,$00,$1E,$00,$00,$00,$00,$1E,$12,$12,$12,$12,$12,$1E,$00
-1243  94EA 00 00 00 00
-1243  94EE 1E 12 12 12
-1243  94F2 12 12 1E 00
-1244  94F6              ProgramEnd:
-1245  94F6
-1246  94F6              ; =========================================================================
-1247  94F6              ; TR-DOS BASIC loader. Loads VGATEST.C at 8000h and starts it.
-1248  94F6              ; =========================================================================
-1249  94F6                      ORG     $B000
-1250  B000              CLEAR       EQU $FD
-1251  B000              LOAD        EQU $EF
-1252  B000              CODE        EQU $AF
-1253  B000              REM         EQU $EA
-1254  B000              RANDOMIZE   EQU $F9
-1255  B000              USR         EQU $C0
-1256  B000              OUT_CMD     EQU $DF
-1257  B000              VAL         EQU $B0
-1258  B000
-1259  B000              basic_loader:
-1260  B000 00 0A                DB      0,10
-1261  B002 20 00                DW      l10_len
-1262  B004 DF 32 33 39  l10:    DB      OUT_CMD, "239", $0E, $00, $00, $EF, $00, $00, ",", "1", $0E, $00, $00, $01, $00, $00, ":", CLEAR, "32767", $0E, $00, $00, $7F, $FF, $00, $0D
-1262  B008 0E 00 00 EF
-1262  B00C 00 00 2C 31
-1262  B010 0E 00 00 01
-1262  B014 00 00 3A FD
-1262  B018 33 32 37 36
-1262  B01C 37 0E 00 00
-1262  B020 7F FF 00 0D
-1263  B024              l10_len EQU     $-l10
-1264  B024
-1265  B024 00 14                DB      0,20
-1266  B026 2A 00                DW      l20_len
-1267  B028 F9 C0 31 35  l20:    DB      RANDOMIZE, USR, "15619", $0E, $00, $00
-1267  B02C 36 31 39 0E
-1267  B030 00 00
-1268  B032 03 3D                DW      15619
-1269  B034 00 3A EA 3A          DB      0, $3A, REM, $3A, "LOAD ", 34, "VGATEST", 34, " CODE 32768", $0D
-1269  B038 4C 4F 41 44
-1269  B03C 20 22 56 47
-1269  B040 41 54 45 53
-1269  B044 54 22 20 43
-1269  B048 4F 44 45 20
-1269  B04C 33 32 37 36
-1269  B050 38 0D
-1270  B052              l20_len EQU     $-l20
-1271  B052
-1272  B052 00 1E                DB      0,30
-1273  B054 0D 00                DW      l30_len
-1274  B056 F9 C0 33 32  l30:    DB      RANDOMIZE, USR, "32768", $0E, $00, $00
-1274  B05A 37 36 38 0E
-1274  B05E 00 00
-1275  B060 00 80                DW      32768
-1276  B062 0D                   DB      $0D
-1277  B063              l30_len EQU     $-l30
-1278  B063
-1279  B063 80                   DB      $80
-1280  B064              basic_loader_end:
-1281  B064
-1282  B064                      SAVETRD "vga_test.TRD","boot.B",basic_loader,basic_loader_end-basic_loader,10
-1283  B064                      SAVETRD "vga_test.TRD","VGATEST.C",$8000,ProgramEnd-$8000
+ 299  818C                      ; Verify the DAC before touching the framebuffer. This keeps all
+ 300  818C                      ; DAC read-index/component activity out of the post-render phase.
+ 301  818C CD 11 82             CALL    SelectPaletteParameters
+ 302  818F CD 07 83             CALL    VerifyDacPalette
+ 303  8192 B7                   OR      A
+ 304  8193 20 3A                JR      NZ,PackedPaletteFailed
+ 305  8195
+ 306  8195 CD 76 82             CALL    FillModeVRAM
+ 307  8198
+ 308  8198 21 08 8C             LD      HL,MsgPalettePass
+ 309  819B CD 56 86             CALL    DebugPrint
+ 310  819E CD FC 85             CALL    SpectrumShowWriteComplete
+ 311  81A1 CD 2C 86             CALL    WaitSpace
+ 312  81A4
+ 313  81A4 3A 73 86             LD      A,(PaletteLevel)
+ 314  81A7 3C                   INC     A
+ 315  81A8 32 73 86             LD      (PaletteLevel),A
+ 316  81AB FE 04                CP      4
+ 317  81AD 20 C2                JR      NZ,PackedPaletteNext
+ 318  81AF
+ 319  81AF 3A 6A 86             LD      A,(ModeCount)
+ 320  81B2 3D                   DEC     A
+ 321  81B3 32 6A 86             LD      (ModeCount),A
+ 322  81B6 C2 39 81             JP      NZ,PackedModeNext
+ 323  81B9
+ 324  81B9 21 B3 8B             LD      HL,MsgSweepDone
+ 325  81BC CD 56 86             CALL    DebugPrint
+ 326  81BF CD 57 85             CALL    SpectrumClear
+ 327  81C2 21 8F 8C             LD      HL,ScreenTitle
+ 328  81C5 CD A3 84             CALL    SpectrumPrint
+ 329  81C8 21 CE 8D             LD      HL,ScreenAllDone
+ 330  81CB CD A3 84             CALL    SpectrumPrint
+ 331  81CE C9                   RET
+ 332  81CF
+ 333  81CF              PackedPaletteFailed:
+ 334  81CF 21 1C 8C             LD      HL,MsgPaletteFail
+ 335  81D2 CD 56 86             CALL    DebugPrint
+ 336  81D5 CD 8D 84             CALL    SpectrumShowDacFail
+ 337  81D8 CD 2C 86             CALL    WaitSpace
+ 338  81DB C9                   RET
+ 339  81DC
+ 340  81DC              ; Re-apply the currently selected packed-pixel 8-bpp resolution.
+ 341  81DC              ConfigureCurrentMode:
+ 342  81DC 3A 6B 86             LD      A,(ModeXLo)
+ 343  81DF 5F                   LD      E,A
+ 344  81E0 3E 00                LD      A,0
+ 345  81E2 CD A0 80             CALL    WriteVgaRegister
+ 346  81E5 3A 6C 86             LD      A,(ModeXHi)
+ 347  81E8 5F                   LD      E,A
+ 348  81E9 3E 01                LD      A,1
+ 349  81EB CD A0 80             CALL    WriteVgaRegister
+ 350  81EE 3A 6D 86             LD      A,(ModeYLo)
+ 351  81F1 5F                   LD      E,A
+ 352  81F2 3E 02                LD      A,2
+ 353  81F4 CD A0 80             CALL    WriteVgaRegister
+ 354  81F7 3A 6E 86             LD      A,(ModeYHi)
+ 355  81FA 5F                   LD      E,A
+ 356  81FB 3E 03                LD      A,3
+ 357  81FD CD A0 80             CALL    WriteVgaRegister
+ 358  8200 3E 08                LD      A,8
+ 359  8202 5F                   LD      E,A
+ 360  8203 3E 04                LD      A,4
+ 361  8205 CD A0 80             CALL    WriteVgaRegister
+ 362  8208 3E 01                LD      A,1
+ 363  820A 5F                   LD      E,A
+ 364  820B 3E 05                LD      A,5
+ 365  820D CD A0 80             CALL    WriteVgaRegister
+ 366  8210 C9                   RET
+ 367  8211
+ 368  8211              ; Palette table entry: count (word), index mask (byte), DAC source stride
+ 369  8211              ; beyond RGB (word). The RGB332 source table contains 256 evenly ordered
+ 370  8211              ; entries, so each smaller palette samples the full colour range.
+ 371  8211              SelectPaletteParameters:
+ 372  8211 21 E4 86             LD      HL,PaletteConfigTable
+ 373  8214 3A 73 86             LD      A,(PaletteLevel)
+ 374  8217 B7                   OR      A
+ 375  8218 28 07                JR      Z,PaletteConfigFound
+ 376  821A 47                   LD      B,A
+ 377  821B              PaletteConfigSkip:
+ 378  821B 11 05 00             LD      DE,5
+ 379  821E 19                   ADD     HL,DE
+ 380  821F 10 FA                DJNZ    PaletteConfigSkip
+ 381  8221              PaletteConfigFound:
+ 382  8221 7E                   LD      A,(HL)
+ 383  8222 23                   INC     HL
+ 384  8223 32 75 86             LD      (PaletteRemaining),A
+ 385  8226 7E                   LD      A,(HL)
+ 386  8227 23                   INC     HL
+ 387  8228 32 76 86             LD      (PaletteRemaining+1),A
+ 388  822B 7E                   LD      A,(HL)
+ 389  822C 23                   INC     HL
+ 390  822D 32 74 86             LD      (PaletteMask),A
+ 391  8230 7E                   LD      A,(HL)
+ 392  8231 23                   INC     HL
+ 393  8232 32 77 86             LD      (PaletteStride),A
+ 394  8235 7E                   LD      A,(HL)
+ 395  8236 32 78 86             LD      (PaletteStride+1),A
+ 396  8239 C9                   RET
+ 397  823A
+ 398  823A              ; Program the selected number of DAC entries from the full RGB332 ramp.
+ 399  823A              ProgramDacPalette:
+ 400  823A 21 D6 8E             LD      HL,Dac332Palette
+ 401  823D ED 5B 77 86          LD      DE,(PaletteStride)
+ 402  8241 AF                   XOR     A
+ 403  8242 32 61 86             LD      (DacIndex),A
+ 404  8245              ProgramDacPaletteLoop:
+ 405  8245 3A 61 86             LD      A,(DacIndex)
+ 406  8248 01 C8 03             LD      BC,$03C8
+ 407  824B ED 79                OUT     (C),A
+ 408  824D 01 C9 03             LD      BC,$03C9
+ 409  8250 7E                   LD      A,(HL)
+ 410  8251 23                   INC     HL
+ 411  8252 ED 79                OUT     (C),A
+ 412  8254 7E                   LD      A,(HL)
+ 413  8255 23                   INC     HL
+ 414  8256 ED 79                OUT     (C),A
+ 415  8258 7E                   LD      A,(HL)
+ 416  8259 23                   INC     HL
+ 417  825A ED 79                OUT     (C),A
+ 418  825C 19                   ADD     HL,DE
+ 419  825D 3A 61 86             LD      A,(DacIndex)
+ 420  8260 3C                   INC     A
+ 421  8261 32 61 86             LD      (DacIndex),A
+ 422  8264 E5                   PUSH    HL
+ 423  8265 CD 6C 82             CALL    DecPaletteRemaining
+ 424  8268 E1                   POP     HL
+ 425  8269 20 DA                JR      NZ,ProgramDacPaletteLoop
+ 426  826B C9                   RET
+ 427  826C
+ 428  826C              DecPaletteRemaining:
+ 429  826C 2A 75 86             LD      HL,(PaletteRemaining)
+ 430  826F 2B                   DEC     HL
+ 431  8270 22 75 86             LD      (PaletteRemaining),HL
+ 432  8273 7C                   LD      A,H
+ 433  8274 B5                   OR      L
+ 434  8275 C9                   RET
+ 435  8276
+ 436  8276              ; Fill exactly the active 8-bpp framebuffer. Display each palette entry
+ 437  8276              ; as an eight-pixel-wide vertical colour bar, cycling through the selected
+ 438  8276              ; palette size (2, 4, 16, or 256 entries).
+ 439  8276              ; Only banks containing visible pixels are touched.
+ 440  8276              FillModeVRAM:
+ 441  8276 AF                   XOR     A
+ 442  8277 32 5E 86             LD      (CurrentBank),A
+ 443  827A 32 61 86             LD      (DacIndex),A
+ 444  827D 3E 00                LD      A,0
+ 445  827F 32 79 86             LD      (PatternCounter),A
+ 446  8282 32 7A 86             LD      (ModeXCounter),A
+ 447  8285 32 7B 86             LD      (ModeXCounter+1),A
+ 448  8288              ModeFillBank:
+ 449  8288 3A 5E 86             LD      A,(CurrentBank)
+ 450  828B 01 DF 03             LD      BC,$03DF
+ 451  828E ED 79                OUT     (C),A
+ 452  8290 21 00 C0             LD      HL,$C000
+ 453  8293 11 7C 86             LD      DE,ModePattern8
+ 454  8296 3A 5E 86             LD      A,(CurrentBank)
+ 455  8299 47                   LD      B,A
+ 456  829A 3A 70 86             LD      A,(ModeBankCount)
+ 457  829D 3D                   DEC     A
+ 458  829E B8                   CP      B
+ 459  829F 20 06                JR      NZ,ModeFillFullBank
+ 460  82A1 ED 4B 71 86          LD      BC,(ModeLastBankBytes)
+ 461  82A5 18 03                JR      ModeFillCountReady
+ 462  82A7              ModeFillFullBank:
+ 463  82A7 01 00 40             LD      BC,$4000
+ 464  82AA              ModeFillCountReady:
+ 465  82AA              ModeFillByte:
+ 466  82AA 3A 61 86             LD      A,(DacIndex)
+ 467  82AD 77                   LD      (HL),A
+ 468  82AE 23                   INC     HL
+ 469  82AF E5                   PUSH    HL                    ; preserve framebuffer write pointer
+ 470  82B0
+ 471  82B0                      ; Advance the horizontal pixel counter independently of HL, which
+ 472  82B0                      ; must continue to point into the VGA aperture for the next write.
+ 473  82B0 2A 7A 86             LD      HL,(ModeXCounter)
+ 474  82B3 23                   INC     HL
+ 475  82B4 22 7A 86             LD      (ModeXCounter),HL
+ 476  82B7 E5                   PUSH    HL
+ 477  82B8 3A 6B 86             LD      A,(ModeXLo)
+ 478  82BB 5F                   LD      E,A
+ 479  82BC 3A 6C 86             LD      A,(ModeXHi)
+ 480  82BF 57                   LD      D,A
+ 481  82C0 B7                   OR      A
+ 482  82C1 ED 52                SBC     HL,DE
+ 483  82C3 E1                   POP     HL
+ 484  82C4 20 0F                JR      NZ,ModePatternContinue
+ 485  82C6
+ 486  82C6                      ; Start every scanline with palette index zero.
+ 487  82C6 21 00 00             LD      HL,0
+ 488  82C9 22 7A 86             LD      (ModeXCounter),HL
+ 489  82CC AF                   XOR     A
+ 490  82CD 32 79 86             LD      (PatternCounter),A
+ 491  82D0 32 61 86             LD      (DacIndex),A
+ 492  82D3 18 1D                JR      ModePatternAdvanceDone
+ 493  82D5
+ 494  82D5              ModePatternContinue:
+ 495  82D5 3A 79 86             LD      A,(PatternCounter)
+ 496  82D8 3C                   INC     A
+ 497  82D9 FE 08                CP      8
+ 498  82DB 20 12                JR      NZ,ModePatternHold
+ 499  82DD AF                   XOR     A
+ 500  82DE 32 79 86             LD      (PatternCounter),A
+ 501  82E1 3A 61 86             LD      A,(DacIndex)
+ 502  82E4 3C                   INC     A
+ 503  82E5 5F                   LD      E,A
+ 504  82E6 3A 74 86             LD      A,(PaletteMask)
+ 505  82E9 A3                   AND     E
+ 506  82EA 32 61 86             LD      (DacIndex),A
+ 507  82ED 18 03                JR      ModePatternAdvanceDone
+ 508  82EF              ModePatternHold:
+ 509  82EF 32 79 86             LD      (PatternCounter),A
+ 510  82F2              ModePatternAdvanceDone:
+ 511  82F2 E1                   POP     HL                    ; restore framebuffer write pointer
+ 512  82F3 0B                   DEC     BC
+ 513  82F4 78                   LD      A,B
+ 514  82F5 B1                   OR      C
+ 515  82F6 20 B2                JR      NZ,ModeFillByte
+ 516  82F8 3A 5E 86             LD      A,(CurrentBank)
+ 517  82FB 3C                   INC     A
+ 518  82FC 32 5E 86             LD      (CurrentBank),A
+ 519  82FF 47                   LD      B,A
+ 520  8300 3A 70 86             LD      A,(ModeBankCount)
+ 521  8303 B8                   CP      B
+ 522  8304 20 82                JR      NZ,ModeFillBank
+ 523  8306 C9                   RET
+ 524  8307
+ 525  8307              ; Read back every programmed DAC entry, including all RGB components.
+ 526  8307              ; Return A=0 on success, A=1 on mismatch.
+ 527  8307              VerifyDacPalette:
+ 528  8307 21 D6 8E             LD      HL,Dac332Palette
+ 529  830A ED 5B 77 86          LD      DE,(PaletteStride)
+ 530  830E AF                   XOR     A
+ 531  830F 32 61 86             LD      (DacIndex),A
+ 532  8312              VerifyDacPaletteLoop:
+ 533  8312 3A 61 86             LD      A,(DacIndex)
+ 534  8315 01 C7 03             LD      BC,$03C7
+ 535  8318 ED 79                OUT     (C),A
+ 536  831A 01 C9 03             LD      BC,$03C9
+ 537  831D ED 78                IN      A,(C)
+ 538  831F BE                   CP      (HL)
+ 539  8320 20 1E                JR      NZ,VerifyDacPaletteFailed
+ 540  8322 23                   INC     HL
+ 541  8323 ED 78                IN      A,(C)
+ 542  8325 BE                   CP      (HL)
+ 543  8326 20 18                JR      NZ,VerifyDacPaletteFailed
+ 544  8328 23                   INC     HL
+ 545  8329 ED 78                IN      A,(C)
+ 546  832B BE                   CP      (HL)
+ 547  832C 20 12                JR      NZ,VerifyDacPaletteFailed
+ 548  832E 23                   INC     HL
+ 549  832F 19                   ADD     HL,DE
+ 550  8330 3A 61 86             LD      A,(DacIndex)
+ 551  8333 3C                   INC     A
+ 552  8334 32 61 86             LD      (DacIndex),A
+ 553  8337 E5                   PUSH    HL
+ 554  8338 CD 6C 82             CALL    DecPaletteRemaining
+ 555  833B E1                   POP     HL
+ 556  833C 20 D4                JR      NZ,VerifyDacPaletteLoop
+ 557  833E AF                   XOR     A
+ 558  833F C9                   RET
+ 559  8340              VerifyDacPaletteFailed:
+ 560  8340 3E 01                LD      A,1
+ 561  8342 C9                   RET
+ 562  8343
+ 563  8343              RunDac256Test:
+ 564  8343 21 30 8C             LD      HL,MsgDacStart
+ 565  8346 CD 56 86             CALL    DebugPrint
+ 566  8349 CD 5B 84             CALL    SpectrumShowDacStart
+ 567  834C 3E 00                LD      A,0
+ 568  834E 1E 40                LD      E,64
+ 569  8350 CD A0 80             CALL    WriteVgaRegister
+ 570  8353 3E 01                LD      A,1
+ 571  8355 1E 01                LD      E,1
+ 572  8357 CD A0 80             CALL    WriteVgaRegister
+ 573  835A 3E 02                LD      A,2
+ 574  835C 1E C8                LD      E,200
+ 575  835E CD A0 80             CALL    WriteVgaRegister
+ 576  8361 3E 03                LD      A,3
+ 577  8363 1E 00                LD      E,0
+ 578  8365 CD A0 80             CALL    WriteVgaRegister
+ 579  8368 3E 04                LD      A,4
+ 580  836A 1E 08                LD      E,8
+ 581  836C CD A0 80             CALL    WriteVgaRegister
+ 582  836F 3E 05                LD      A,5
+ 583  8371 1E 01                LD      E,1
+ 584  8373 CD A0 80             CALL    WriteVgaRegister
+ 585  8376 CD C6 83             CALL    ProgramDac332
+ 586  8379
+ 587  8379                      ; DAC writes use ports 3C8h/3C9h. In the Project131 adapter model,
+ 588  8379                      ; writes to legacy VGA ports clear vbe_enabled. Re-apply the packed
+ 589  8379                      ; 320x200x8 mode AFTER programming the DAC, before touching VRAM.
+ 590  8379 3E 00                LD      A,0
+ 591  837B 1E 40                LD      E,64
+ 592  837D CD A0 80             CALL    WriteVgaRegister
+ 593  8380 3E 01                LD      A,1
+ 594  8382 1E 01                LD      E,1
+ 595  8384 CD A0 80             CALL    WriteVgaRegister
+ 596  8387 3E 02                LD      A,2
+ 597  8389 1E C8                LD      E,200
+ 598  838B CD A0 80             CALL    WriteVgaRegister
+ 599  838E 3E 03                LD      A,3
+ 600  8390 1E 00                LD      E,0
+ 601  8392 CD A0 80             CALL    WriteVgaRegister
+ 602  8395 3E 04                LD      A,4
+ 603  8397 1E 08                LD      E,8
+ 604  8399 CD A0 80             CALL    WriteVgaRegister
+ 605  839C 3E 05                LD      A,5
+ 606  839E 1E 01                LD      E,1
+ 607  83A0 CD A0 80             CALL    WriteVgaRegister
+ 608  83A3
+ 609  83A3 CD EE 83             CALL    FillDacFramebuffer
+ 610  83A6 CD 29 84             CALL    VerifyDac332
+ 611  83A9 B7                   OR      A
+ 612  83AA 20 0D                JR      NZ,DacTestFailed
+ 613  83AC 21 53 8C             LD      HL,MsgDacPass
+ 614  83AF CD 56 86             CALL    DebugPrint
+ 615  83B2 CD 71 84             CALL    SpectrumShowDacPass
+ 616  83B5 CD 2C 86             CALL    WaitSpace
+ 617  83B8 C9                   RET
+ 618  83B9              DacTestFailed:
+ 619  83B9 21 71 8C             LD      HL,MsgDacFail
+ 620  83BC CD 56 86             CALL    DebugPrint
+ 621  83BF CD 8D 84             CALL    SpectrumShowDacFail
+ 622  83C2 CD 2C 86             CALL    WaitSpace
+ 623  83C5 C9                   RET
+ 624  83C6
+ 625  83C6              ProgramDac332:
+ 626  83C6 21 D6 8E             LD      HL,Dac332Palette
+ 627  83C9 AF                   XOR     A
+ 628  83CA 32 61 86             LD      (DacIndex),A
+ 629  83CD              DacWriteLoop:
+ 630  83CD 3A 61 86             LD      A,(DacIndex)
+ 631  83D0 01 C8 03             LD      BC,$03C8
+ 632  83D3 ED 79                OUT     (C),A
+ 633  83D5 01 C9 03             LD      BC,$03C9
+ 634  83D8 7E                   LD      A,(HL)
+ 635  83D9 23                   INC     HL
+ 636  83DA ED 79                OUT     (C),A
+ 637  83DC 7E                   LD      A,(HL)
+ 638  83DD 23                   INC     HL
+ 639  83DE ED 79                OUT     (C),A
+ 640  83E0 7E                   LD      A,(HL)
+ 641  83E1 23                   INC     HL
+ 642  83E2 ED 79                OUT     (C),A
+ 643  83E4 3A 61 86             LD      A,(DacIndex)
+ 644  83E7 3C                   INC     A
+ 645  83E8 32 61 86             LD      (DacIndex),A
+ 646  83EB 20 E0                JR      NZ,DacWriteLoop
+ 647  83ED C9                   RET
+ 648  83EE
+ 649  83EE              FillDacFramebuffer:
+ 650  83EE AF                   XOR     A
+ 651  83EF 32 5E 86             LD      (CurrentBank),A
+ 652  83F2 32 61 86             LD      (DacIndex),A
+ 653  83F5              DacFillBank:
+ 654  83F5 3A 5E 86             LD      A,(CurrentBank)
+ 655  83F8 01 DF 03             LD      BC,$03DF
+ 656  83FB ED 79                OUT     (C),A
+ 657  83FD 21 00 C0             LD      HL,$C000
+ 658  8400 3A 5E 86             LD      A,(CurrentBank)
+ 659  8403 FE 03                CP      3
+ 660  8405 28 05                JR      Z,DacFillLastBank
+ 661  8407 01 00 40             LD      BC,$4000
+ 662  840A 18 03                JR      DacFillCountReady
+ 663  840C              DacFillLastBank:
+ 664  840C 01 00 3A             LD      BC,14848
+ 665  840F              DacFillCountReady:
+ 666  840F              DacFillByte:
+ 667  840F 3A 61 86             LD      A,(DacIndex)
+ 668  8412 77                   LD      (HL),A
+ 669  8413 23                   INC     HL
+ 670  8414 3C                   INC     A
+ 671  8415 32 61 86             LD      (DacIndex),A
+ 672  8418 0B                   DEC     BC
+ 673  8419 78                   LD      A,B
+ 674  841A B1                   OR      C
+ 675  841B 20 F2                JR      NZ,DacFillByte
+ 676  841D 3A 5E 86             LD      A,(CurrentBank)
+ 677  8420 3C                   INC     A
+ 678  8421 32 5E 86             LD      (CurrentBank),A
+ 679  8424 FE 04                CP      4
+ 680  8426 20 CD                JR      NZ,DacFillBank
+ 681  8428 C9                   RET
+ 682  8429
+ 683  8429              VerifyDac332:
+ 684  8429 21 D6 8E             LD      HL,Dac332Palette
+ 685  842C AF                   XOR     A
+ 686  842D 32 61 86             LD      (DacIndex),A
+ 687  8430              DacReadLoop:
+ 688  8430 3A 61 86             LD      A,(DacIndex)
+ 689  8433 01 C7 03             LD      BC,$03C7
+ 690  8436 ED 79                OUT     (C),A
+ 691  8438 01 C9 03             LD      BC,$03C9
+ 692  843B ED 78                IN      A,(C)
+ 693  843D BE                   CP      (HL)
+ 694  843E 20 18                JR      NZ,DacVerifyFailed
+ 695  8440 23                   INC     HL
+ 696  8441 ED 78                IN      A,(C)
+ 697  8443 BE                   CP      (HL)
+ 698  8444 20 12                JR      NZ,DacVerifyFailed
+ 699  8446 23                   INC     HL
+ 700  8447 ED 78                IN      A,(C)
+ 701  8449 BE                   CP      (HL)
+ 702  844A 20 0C                JR      NZ,DacVerifyFailed
+ 703  844C 23                   INC     HL
+ 704  844D 3A 61 86             LD      A,(DacIndex)
+ 705  8450 3C                   INC     A
+ 706  8451 32 61 86             LD      (DacIndex),A
+ 707  8454 20 DA                JR      NZ,DacReadLoop
+ 708  8456 AF                   XOR     A
+ 709  8457 C9                   RET
+ 710  8458              DacVerifyFailed:
+ 711  8458 3E 01                LD      A,1
+ 712  845A C9                   RET
+ 713  845B
+ 714  845B              SpectrumShowDacStart:
+ 715  845B CD 57 85             CALL    SpectrumClear
+ 716  845E 21 8F 8C             LD      HL,ScreenTitle
+ 717  8461 CD A3 84             CALL    SpectrumPrint
+ 718  8464 21 F8 8D             LD      HL,ScreenDacHeading
+ 719  8467 CD A3 84             CALL    SpectrumPrint
+ 720  846A 21 13 8E             LD      HL,ScreenDacWriting
+ 721  846D CD A3 84             CALL    SpectrumPrint
+ 722  8470 C9                   RET
+ 723  8471              SpectrumShowDacPass:
+ 724  8471 CD 57 85             CALL    SpectrumClear
+ 725  8474 21 8F 8C             LD      HL,ScreenTitle
+ 726  8477 CD A3 84             CALL    SpectrumPrint
+ 727  847A 21 F8 8D             LD      HL,ScreenDacHeading
+ 728  847D CD A3 84             CALL    SpectrumPrint
+ 729  8480 21 6C 8E             LD      HL,ScreenDacPassed
+ 730  8483 CD A3 84             CALL    SpectrumPrint
+ 731  8486 21 9F 8D             LD      HL,ScreenNextHint
+ 732  8489 CD A3 84             CALL    SpectrumPrint
+ 733  848C C9                   RET
+ 734  848D              SpectrumShowDacFail:
+ 735  848D CD 57 85             CALL    SpectrumClear
+ 736  8490 21 8F 8C             LD      HL,ScreenTitle
+ 737  8493 CD A3 84             CALL    SpectrumPrint
+ 738  8496 21 F8 8D             LD      HL,ScreenDacHeading
+ 739  8499 CD A3 84             CALL    SpectrumPrint
+ 740  849C 21 A3 8E             LD      HL,ScreenDacFailed
+ 741  849F CD A3 84             CALL    SpectrumPrint
+ 742  84A2 C9                   RET
+ 743  84A3
+ 744  84A3              SpectrumPrint:
+ 745  84A3 7E                   LD      A,(HL)
+ 746  84A4 B7                   OR      A
+ 747  84A5 C8                   RET     Z
+ 748  84A6 23                   INC     HL
+ 749  84A7 FE 0D                CP      13
+ 750  84A9 CA 44 85             JP      Z,SpectrumPrintNewLine
+ 751  84AC FE 20                CP      32
+ 752  84AE 38 F3                JR      C,SpectrumPrint
+ 753  84B0 FE 80                CP      128
+ 754  84B2 30 EF                JR      NC,SpectrumPrint
+ 755  84B4 E5                   PUSH    HL
+ 756  84B5 D6 20                SUB     32
+ 757  84B7 6F                   LD      L,A
+ 758  84B8 26 00                LD      H,0
+ 759  84BA 29                   ADD     HL,HL
+ 760  84BB 29                   ADD     HL,HL
+ 761  84BC 29                   ADD     HL,HL
+ 762  84BD 11 F6 91             LD      DE,Font88_132
+ 763  84C0 19                   ADD     HL,DE
+ 764  84C1 22 66 86             LD      (SpectrumFontPtr),HL
+ 765  84C4 AF                   XOR     A
+ 766  84C5 32 64 86             LD      (SpectrumGlyphLine),A
+ 767  84C8              SpectrumGlyphLoop:
+ 768  84C8 2A 66 86             LD      HL,(SpectrumFontPtr)
+ 769  84CB 7E                   LD      A,(HL)
+ 770  84CC 32 65 86             LD      (SpectrumGlyphByte),A
+ 771  84CF 23                   INC     HL
+ 772  84D0 22 66 86             LD      (SpectrumFontPtr),HL
+ 773  84D3
+ 774  84D3                      ; Same bitmap address calculation as Project112 RenderGlyph_Standard112.
+ 775  84D3 3A 63 86             LD      A,(SpectrumCursorY)
+ 776  84D6 87                   ADD     A,A
+ 777  84D7 87                   ADD     A,A
+ 778  84D8 87                   ADD     A,A
+ 779  84D9 47                   LD      B,A
+ 780  84DA 3A 64 86             LD      A,(SpectrumGlyphLine)
+ 781  84DD 80                   ADD     A,B
+ 782  84DE 47                   LD      B,A
+ 783  84DF 78                   LD      A,B
+ 784  84E0 E6 C0                AND     $C0
+ 785  84E2 0F                   RRCA
+ 786  84E3 0F                   RRCA
+ 787  84E4 0F                   RRCA
+ 788  84E5 4F                   LD      C,A
+ 789  84E6 78                   LD      A,B
+ 790  84E7 E6 07                AND     $07
+ 791  84E9 B1                   OR      C
+ 792  84EA F6 40                OR      $40
+ 793  84EC 67                   LD      H,A
+ 794  84ED 78                   LD      A,B
+ 795  84EE E6 38                AND     $38
+ 796  84F0 07                   RLCA
+ 797  84F1 07                   RLCA
+ 798  84F2 6F                   LD      L,A
+ 799  84F3 3A 62 86             LD      A,(SpectrumCursorX)
+ 800  84F6 B5                   OR      L
+ 801  84F7 6F                   LD      L,A
+ 802  84F8 3A 65 86             LD      A,(SpectrumGlyphByte)
+ 803  84FB 77                   LD      (HL),A
+ 804  84FC
+ 805  84FC 3A 64 86             LD      A,(SpectrumGlyphLine)
+ 806  84FF 3C                   INC     A
+ 807  8500 32 64 86             LD      (SpectrumGlyphLine),A
+ 808  8503 FE 08                CP      8
+ 809  8505 20 C1                JR      NZ,SpectrumGlyphLoop
+ 810  8507
+ 811  8507                      ; Same attribute-cell calculation as Project112.
+ 812  8507 3A 63 86             LD      A,(SpectrumCursorY)
+ 813  850A 6F                   LD      L,A
+ 814  850B 26 00                LD      H,0
+ 815  850D 29                   ADD     HL,HL
+ 816  850E 29                   ADD     HL,HL
+ 817  850F 29                   ADD     HL,HL
+ 818  8510 29                   ADD     HL,HL
+ 819  8511 29                   ADD     HL,HL
+ 820  8512 11 00 58             LD      DE,$5800
+ 821  8515 19                   ADD     HL,DE
+ 822  8516 3A 62 86             LD      A,(SpectrumCursorX)
+ 823  8519 85                   ADD     A,L
+ 824  851A 6F                   LD      L,A
+ 825  851B 30 01                JR      NC,SpectrumAttrAddressReady
+ 826  851D 24                   INC     H
+ 827  851E              SpectrumAttrAddressReady:
+ 828  851E 3E 47                LD      A,$47
+ 829  8520 77                   LD      (HL),A
+ 830  8521
+ 831  8521 3A 62 86             LD      A,(SpectrumCursorX)
+ 832  8524 3C                   INC     A
+ 833  8525 FE 20                CP      32
+ 834  8527 38 14                JR      C,SpectrumCursorXReady
+ 835  8529 AF                   XOR     A
+ 836  852A 32 62 86             LD      (SpectrumCursorX),A
+ 837  852D 3A 63 86             LD      A,(SpectrumCursorY)
+ 838  8530 3C                   INC     A
+ 839  8531 FE 18                CP      24
+ 840  8533 38 01                JR      C,SpectrumCursorYReady
+ 841  8535 AF                   XOR     A
+ 842  8536              SpectrumCursorYReady:
+ 843  8536 32 63 86             LD      (SpectrumCursorY),A
+ 844  8539 E1                   POP     HL
+ 845  853A C3 A3 84             JP      SpectrumPrint
+ 846  853D              SpectrumCursorXReady:
+ 847  853D 32 62 86             LD      (SpectrumCursorX),A
+ 848  8540 E1                   POP     HL
+ 849  8541 C3 A3 84             JP      SpectrumPrint
+ 850  8544
+ 851  8544              SpectrumPrintNewLine:
+ 852  8544 AF                   XOR     A
+ 853  8545 32 62 86             LD      (SpectrumCursorX),A
+ 854  8548 3A 63 86             LD      A,(SpectrumCursorY)
+ 855  854B 3C                   INC     A
+ 856  854C FE 18                CP      24
+ 857  854E 38 01                JR      C,SpectrumNewLineYReady
+ 858  8550 AF                   XOR     A
+ 859  8551              SpectrumNewLineYReady:
+ 860  8551 32 63 86             LD      (SpectrumCursorY),A
+ 861  8554 C3 A3 84             JP      SpectrumPrint
+ 862  8557
+ 863  8557              SpectrumClear:
+ 864  8557 AF                   XOR     A
+ 865  8558 32 62 86             LD      (SpectrumCursorX),A
+ 866  855B 32 63 86             LD      (SpectrumCursorY),A
+ 867  855E                      ; Clear the 6144-byte bitmap.
+ 868  855E 21 00 40             LD      HL,$4000
+ 869  8561 11 01 40             LD      DE,$4001
+ 870  8564 01 FF 17             LD      BC,$17FF
+ 871  8567 77                   LD      (HL),A
+ 872  8568 ED B0                LDIR
+ 873  856A                      ; Initialize all 768 attributes.
+ 874  856A 21 00 58             LD      HL,$5800
+ 875  856D 11 01 58             LD      DE,$5801
+ 876  8570 01 FF 02             LD      BC,$02FF
+ 877  8573 3E 07                LD      A,$07
+ 878  8575 77                   LD      (HL),A
+ 879  8576 ED B0                LDIR
+ 880  8578 C9                   RET
+ 881  8579
+ 882  8579              SpectrumShowStartup:
+ 883  8579 CD 57 85             CALL    SpectrumClear
+ 884  857C 21 8F 8C             LD      HL,ScreenTitle
+ 885  857F CD A3 84             CALL    SpectrumPrint
+ 886  8582 21 AF 8C             LD      HL,ScreenStarting
+ 887  8585 CD A3 84             CALL    SpectrumPrint
+ 888  8588 C9                   RET
+ 889  8589
+ 890  8589              ; HL points to a zero-terminated status string.
+ 891  8589              SpectrumShowStatus:
+ 892  8589 E5                   PUSH    HL
+ 893  858A CD 57 85             CALL    SpectrumClear
+ 894  858D 21 8F 8C             LD      HL,ScreenTitle
+ 895  8590 CD A3 84             CALL    SpectrumPrint
+ 896  8593 E1                   POP     HL
+ 897  8594 CD A3 84             CALL    SpectrumPrint
+ 898  8597 C9                   RET
+ 899  8598
+ 900  8598              SpectrumShowInitialMode:
+ 901  8598 CD 57 85             CALL    SpectrumClear
+ 902  859B 21 8F 8C             LD      HL,ScreenTitle
+ 903  859E CD A3 84             CALL    SpectrumPrint
+ 904  85A1 21 F3 8C             LD      HL,ScreenInitialMode
+ 905  85A4 CD A3 84             CALL    SpectrumPrint
+ 906  85A7 21 21 8D             LD      HL,ScreenInitialTestRunning
+ 907  85AA CD A3 84             CALL    SpectrumPrint
+ 908  85AD 21 66 8D             LD      HL,ScreenWriteRunning
+ 909  85B0 CD A3 84             CALL    SpectrumPrint
+ 910  85B3 C9                   RET
+ 911  85B4
+ 912  85B4              SpectrumShowInitialWriteComplete:
+ 913  85B4 CD 57 85             CALL    SpectrumClear
+ 914  85B7 21 8F 8C             LD      HL,ScreenTitle
+ 915  85BA CD A3 84             CALL    SpectrumPrint
+ 916  85BD 21 F3 8C             LD      HL,ScreenInitialMode
+ 917  85C0 CD A3 84             CALL    SpectrumPrint
+ 918  85C3 21 21 8D             LD      HL,ScreenInitialTestRunning
+ 919  85C6 CD A3 84             CALL    SpectrumPrint
+ 920  85C9 21 86 8D             LD      HL,ScreenWritePassed
+ 921  85CC CD A3 84             CALL    SpectrumPrint
+ 922  85CF C9                   RET
+ 923  85D0
+ 924  85D0              SpectrumShowMode:
+ 925  85D0 CD 57 85             CALL    SpectrumClear
+ 926  85D3 21 8F 8C             LD      HL,ScreenTitle
+ 927  85D6 CD A3 84             CALL    SpectrumPrint
+ 928  85D9 21 E0 8C             LD      HL,ScreenModeHeading
+ 929  85DC CD A3 84             CALL    SpectrumPrint
+ 930  85DF                      ; Fetch and advance the pointer in the mode-label pointer table.
+ 931  85DF 2A 5F 86             LD      HL,(ModeLabelPtr)
+ 932  85E2 7E                   LD      A,(HL)
+ 933  85E3 5F                   LD      E,A
+ 934  85E4 23                   INC     HL
+ 935  85E5 7E                   LD      A,(HL)
+ 936  85E6 57                   LD      D,A
+ 937  85E7 23                   INC     HL
+ 938  85E8 22 5F 86             LD      (ModeLabelPtr),HL
+ 939  85EB EB                   EX      DE,HL
+ 940  85EC CD A3 84             CALL    SpectrumPrint
+ 941  85EF 21 4D 8D             LD      HL,ScreenTestRunning
+ 942  85F2 CD A3 84             CALL    SpectrumPrint
+ 943  85F5 21 66 8D             LD      HL,ScreenWriteRunning
+ 944  85F8 CD A3 84             CALL    SpectrumPrint
+ 945  85FB C9                   RET
+ 946  85FC
+ 947  85FC              SpectrumShowWriteComplete:
+ 948  85FC CD 57 85             CALL    SpectrumClear
+ 949  85FF 21 8F 8C             LD      HL,ScreenTitle
+ 950  8602 CD A3 84             CALL    SpectrumPrint
+ 951  8605 21 E0 8C             LD      HL,ScreenModeHeading
+ 952  8608 CD A3 84             CALL    SpectrumPrint
+ 953  860B                      ; Re-read the just-consumed mode label without advancing the table.
+ 954  860B 2A 5F 86             LD      HL,(ModeLabelPtr)
+ 955  860E 2B                   DEC     HL
+ 956  860F 2B                   DEC     HL
+ 957  8610 7E                   LD      A,(HL)
+ 958  8611 5F                   LD      E,A
+ 959  8612 23                   INC     HL
+ 960  8613 7E                   LD      A,(HL)
+ 961  8614 57                   LD      D,A
+ 962  8615 EB                   EX      DE,HL
+ 963  8616 CD A3 84             CALL    SpectrumPrint
+ 964  8619 21 4D 8D             LD      HL,ScreenTestRunning
+ 965  861C CD A3 84             CALL    SpectrumPrint
+ 966  861F 21 86 8D             LD      HL,ScreenWritePassed
+ 967  8622 CD A3 84             CALL    SpectrumPrint
+ 968  8625 21 9F 8D             LD      HL,ScreenNextHint
+ 969  8628 CD A3 84             CALL    SpectrumPrint
+ 970  862B C9                   RET
+ 971  862C
+ 972  862C              ; Wait for SPACE so every resolution and its complete colour ramp
+ 973  862C              ; remains visible until the user is ready for the next mode.
+ 974  862C              WaitSpace:
+ 975  862C 01 FE 7F             LD      BC,$7FFE
+ 976  862F              WaitSpacePress:
+ 977  862F ED 78                IN      A,(C)
+ 978  8631 E6 01                AND     1
+ 979  8633 20 FA                JR      NZ,WaitSpacePress
+ 980  8635              WaitSpaceRelease:
+ 981  8635 ED 78                IN      A,(C)
+ 982  8637 E6 01                AND     1
+ 983  8639 28 FA                JR      Z,WaitSpaceRelease
+ 984  863B C9                   RET
+ 985  863C
+ 986  863C              DebugHexByte:
+ 987  863C F5                   PUSH    AF
+ 988  863D 0F                   RRCA
+ 989  863E 0F                   RRCA
+ 990  863F 0F                   RRCA
+ 991  8640 0F                   RRCA
+ 992  8641 CD 49 86             CALL    DebugHexNibble
+ 993  8644 F1                   POP     AF
+ 994  8645 CD 49 86             CALL    DebugHexNibble
+ 995  8648 C9                   RET
+ 996  8649              DebugHexNibble:
+ 997  8649 E6 0F                AND     $0F
+ 998  864B C6 30                ADD     A,'0'
+ 999  864D FE 3A                CP      '9'+1
+1000  864F 38 02                JR      C,DebugHexOut
+1001  8651 C6 07                ADD     A,7
+1002  8653              DebugHexOut:
+1003  8653 D3 EF                OUT     ($EF),A
+1004  8655 C9                   RET
+1005  8656
+1006  8656              ; -------------------------------------------------------------------------
+1007  8656              ; Port EF text logger (ASCII bytes, same convention as Project112).
+1008  8656              ; -------------------------------------------------------------------------
+1009  8656              DebugPrint:
+1010  8656 7E                   LD      A,(HL)
+1011  8657 B7                   OR      A
+1012  8658 C8                   RET     Z
+1013  8659 D3 EF                OUT     ($EF),A
+1014  865B 23                   INC     HL
+1015  865C 18 F8                JR      DebugPrint
+1016  865E
+1017  865E 00           CurrentBank: DB 0
+1018  865F
+1019  865F
+1020  865F 00 00        ModeLabelPtr: DW 0
+1021  8661 00           DacIndex: DB 0
+1022  8662 00           SpectrumCursorX: DB 0
+1023  8663 00           SpectrumCursorY: DB 0
+1024  8664 00           SpectrumGlyphLine: DB 0
+1025  8665 00           SpectrumGlyphByte: DB 0
+1026  8666 00 00        SpectrumFontPtr: DW 0
+1027  8668 00 00        ModeTablePtr: DW 0
+1028  866A 00           ModeCount:    DB 0
+1029  866B 00           ModeXLo:      DB 0
+1030  866C 00           ModeXHi:      DB 0
+1031  866D 00           ModeYLo:      DB 0
+1032  866E 00           ModeYHi:      DB 0
+1033  866F 00           ModeBpp:      DB 0
+1034  8670 00           ModeBankCount: DB 0
+1035  8671 00 00        ModeLastBankBytes: DW 0
+1036  8673 00           PaletteLevel: DB 0
+1037  8674 00           PaletteMask: DB 0
+1038  8675 00 00        PaletteRemaining: DW 0
+1039  8677 00 00        PaletteStride: DW 0
+1040  8679 00           PatternCounter: DB 0
+1041  867A 00 00        ModeXCounter: DW 0
+1042  867C
+1043  867C              ; Sixteen initialized EGA palette indices, each repeated twice.
+1044  867C              ; Project132 also uses EGA entry 15 as white for its on-screen banner.
+1045  867C              ModePattern8:
+1046  867C 00 00 01 01          DB $00,$00,$01,$01,$02,$02,$03,$03,$04,$04,$05,$05,$06,$06,$07,$07
+1046  8680 02 02 03 03
+1046  8684 04 04 05 05
+1046  8688 06 06 07 07
+1047  868C 08 08 09 09          DB $08,$08,$09,$09,$0A,$0A,$0B,$0B,$0C,$0C,$0D,$0D,$0E,$0E,$0F,$0F
+1047  8690 0A 0A 0B 0B
+1047  8694 0C 0C 0D 0D
+1047  8698 0E 0E 0F 0F
+1048  869C              ModePattern8End:
+1049  869C
+1050  869C              ; Standard PC display resolutions, all tested in 8-bpp indexed colour.
+1051  869C              ; Entry: X low, X high, Y low, Y high, BPP, bank count, last-bank bytes.
+1052  869C              ; Framebuffer sizes are <= 1 MiB.
+1053  869C              PackedModeTable:
+1054  869C 40 01 C8 00          DB 320&255,320>>8,200&255,200>>8,8,4,14848&255,14848>>8
+1054  86A0 08 04 00 3A
+1055  86A4 40 01 F0 00          DB 320&255,320>>8,240&255,240>>8,8,5,11264&255,11264>>8
+1055  86A8 08 05 00 2C
+1056  86AC 00 02 80 01          DB 512&255,512>>8,384&255,384>>8,8,12,0,64
+1056  86B0 08 0C 00 40
+1057  86B4 80 02 C8 00          DB 640&255,640>>8,200&255,200>>8,8,8,14336&255,14336>>8
+1057  86B8 08 08 00 38
+1058  86BC 80 02 5E 01          DB 640&255,640>>8,350&255,350>>8,8,14,11008&255,11008>>8
+1058  86C0 08 0E 00 2B
+1059  86C4 80 02 90 01          DB 640&255,640>>8,400&255,400>>8,8,16,10240&255,10240>>8
+1059  86C8 08 10 00 28
+1060  86CC 80 02 E0 01          DB 640&255,640>>8,480&255,480>>8,8,19,12288&255,12288>>8
+1060  86D0 08 13 00 30
+1061  86D4 20 03 58 02          DB 800&255,800>>8,600&255,600>>8,8,30,4864&255,4864>>8
+1061  86D8 08 1E 00 13
+1062  86DC 00 04 00 03          DB 1024&255,1024>>8,768&255,768>>8,8,48,0,64
+1062  86E0 08 30 00 40
+1063  86E4
+1064  86E4
+1065  86E4              ; Palette levels: 2, 4, 16 and 256 entries. Palette data is sequential:
+1066  86E4              ; first 16 entries are a conventional EGA palette, then RGB332 ramp.
+1067  86E4              PaletteConfigTable:
+1068  86E4 02 00                DW 2
+1069  86E6 01                   DB 1
+1070  86E7 00 00                DW 0
+1071  86E9 04 00                DW 4
+1072  86EB 03                   DB 3
+1073  86EC 00 00                DW 0
+1074  86EE 10 00                DW 16
+1075  86F0 0F                   DB 15
+1076  86F1 00 00                DW 0
+1077  86F3 00 01                DW 256
+1078  86F5 FF                   DB 255
+1079  86F6 00 00                DW 0
+1080  86F8
+1081  86F8              ; Text shown on the Spectrum screen for each VGA mode.
+1082  86F8              ModeLabelTable:
+1083  86F8 0A 87 5F 87          DW ModeLabel01,ModeLabel02,ModeLabel03,ModeLabel04,ModeLabel05
+1083  86FC B4 87 0A 88
+1083  8700 60 88
+1084  8702 B6 88 0C 89          DW ModeLabel06,ModeLabel07,ModeLabel08,ModeLabel09
+1084  8706 62 89 B8 89
+1085  870A 4D 4F 44 45  ModeLabel01: DEFM "MODE 01 OF 09",13,"RESOLUTION: 320x200",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 64000 BYTES",13,13,0
+1085  870E 20 30 31 20
+1085  8712 4F 46 20 30
+1085  8716 39 0D 52 45
+1085  871A 53 4F 4C 55
+1085  871E 54 49 4F 4E
+1085  8722 3A 20 33 32
+1085  8726 30 78 32 30
+1085  872A 30 0D 43 4F
+1085  872E 4C 4F 52 3A
+1085  8732 20 38 20 42
+1085  8736 50 50 20 2F
+1085  873A 20 49 4E 44
+1085  873E 45 58 45 44
+1085  8742 20 50 41 4C
+1085  8746 45 54 54 45
+1085  874A 0D 56 52 41
+1085  874E 4D 3A 20 36
+1085  8752 34 30 30 30
+1085  8756 20 42 59 54
+1085  875A 45 53 0D 0D
+1085  875E 00
+1086  875F 4D 4F 44 45  ModeLabel02: DEFM "MODE 02 OF 09",13,"RESOLUTION: 320x240",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 76800 BYTES",13,13,0
+1086  8763 20 30 32 20
+1086  8767 4F 46 20 30
+1086  876B 39 0D 52 45
+1086  876F 53 4F 4C 55
+1086  8773 54 49 4F 4E
+1086  8777 3A 20 33 32
+1086  877B 30 78 32 34
+1086  877F 30 0D 43 4F
+1086  8783 4C 4F 52 3A
+1086  8787 20 38 20 42
+1086  878B 50 50 20 2F
+1086  878F 20 49 4E 44
+1086  8793 45 58 45 44
+1086  8797 20 50 41 4C
+1086  879B 45 54 54 45
+1086  879F 0D 56 52 41
+1086  87A3 4D 3A 20 37
+1086  87A7 36 38 30 30
+1086  87AB 20 42 59 54
+1086  87AF 45 53 0D 0D
+1086  87B3 00
+1087  87B4 4D 4F 44 45  ModeLabel03: DEFM "MODE 03 OF 09",13,"RESOLUTION: 512x384",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 196608 BYTES",13,13,0
+1087  87B8 20 30 33 20
+1087  87BC 4F 46 20 30
+1087  87C0 39 0D 52 45
+1087  87C4 53 4F 4C 55
+1087  87C8 54 49 4F 4E
+1087  87CC 3A 20 35 31
+1087  87D0 32 78 33 38
+1087  87D4 34 0D 43 4F
+1087  87D8 4C 4F 52 3A
+1087  87DC 20 38 20 42
+1087  87E0 50 50 20 2F
+1087  87E4 20 49 4E 44
+1087  87E8 45 58 45 44
+1087  87EC 20 50 41 4C
+1087  87F0 45 54 54 45
+1087  87F4 0D 56 52 41
+1087  87F8 4D 3A 20 31
+1087  87FC 39 36 36 30
+1087  8800 38 20 42 59
+1087  8804 54 45 53 0D
+1087  8808 0D 00
+1088  880A 4D 4F 44 45  ModeLabel04: DEFM "MODE 04 OF 09",13,"RESOLUTION: 640x200",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 128000 BYTES",13,13,0
+1088  880E 20 30 34 20
+1088  8812 4F 46 20 30
+1088  8816 39 0D 52 45
+1088  881A 53 4F 4C 55
+1088  881E 54 49 4F 4E
+1088  8822 3A 20 36 34
+1088  8826 30 78 32 30
+1088  882A 30 0D 43 4F
+1088  882E 4C 4F 52 3A
+1088  8832 20 38 20 42
+1088  8836 50 50 20 2F
+1088  883A 20 49 4E 44
+1088  883E 45 58 45 44
+1088  8842 20 50 41 4C
+1088  8846 45 54 54 45
+1088  884A 0D 56 52 41
+1088  884E 4D 3A 20 31
+1088  8852 32 38 30 30
+1088  8856 30 20 42 59
+1088  885A 54 45 53 0D
+1088  885E 0D 00
+1089  8860 4D 4F 44 45  ModeLabel05: DEFM "MODE 05 OF 09",13,"RESOLUTION: 640x350",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 224000 BYTES",13,13,0
+1089  8864 20 30 35 20
+1089  8868 4F 46 20 30
+1089  886C 39 0D 52 45
+1089  8870 53 4F 4C 55
+1089  8874 54 49 4F 4E
+1089  8878 3A 20 36 34
+1089  887C 30 78 33 35
+1089  8880 30 0D 43 4F
+1089  8884 4C 4F 52 3A
+1089  8888 20 38 20 42
+1089  888C 50 50 20 2F
+1089  8890 20 49 4E 44
+1089  8894 45 58 45 44
+1089  8898 20 50 41 4C
+1089  889C 45 54 54 45
+1089  88A0 0D 56 52 41
+1089  88A4 4D 3A 20 32
+1089  88A8 32 34 30 30
+1089  88AC 30 20 42 59
+1089  88B0 54 45 53 0D
+1089  88B4 0D 00
+1090  88B6 4D 4F 44 45  ModeLabel06: DEFM "MODE 06 OF 09",13,"RESOLUTION: 640x400",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 256000 BYTES",13,13,0
+1090  88BA 20 30 36 20
+1090  88BE 4F 46 20 30
+1090  88C2 39 0D 52 45
+1090  88C6 53 4F 4C 55
+1090  88CA 54 49 4F 4E
+1090  88CE 3A 20 36 34
+1090  88D2 30 78 34 30
+1090  88D6 30 0D 43 4F
+1090  88DA 4C 4F 52 3A
+1090  88DE 20 38 20 42
+1090  88E2 50 50 20 2F
+1090  88E6 20 49 4E 44
+1090  88EA 45 58 45 44
+1090  88EE 20 50 41 4C
+1090  88F2 45 54 54 45
+1090  88F6 0D 56 52 41
+1090  88FA 4D 3A 20 32
+1090  88FE 35 36 30 30
+1090  8902 30 20 42 59
+1090  8906 54 45 53 0D
+1090  890A 0D 00
+1091  890C 4D 4F 44 45  ModeLabel07: DEFM "MODE 07 OF 09",13,"RESOLUTION: 640x480",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 307200 BYTES",13,13,0
+1091  8910 20 30 37 20
+1091  8914 4F 46 20 30
+1091  8918 39 0D 52 45
+1091  891C 53 4F 4C 55
+1091  8920 54 49 4F 4E
+1091  8924 3A 20 36 34
+1091  8928 30 78 34 38
+1091  892C 30 0D 43 4F
+1091  8930 4C 4F 52 3A
+1091  8934 20 38 20 42
+1091  8938 50 50 20 2F
+1091  893C 20 49 4E 44
+1091  8940 45 58 45 44
+1091  8944 20 50 41 4C
+1091  8948 45 54 54 45
+1091  894C 0D 56 52 41
+1091  8950 4D 3A 20 33
+1091  8954 30 37 32 30
+1091  8958 30 20 42 59
+1091  895C 54 45 53 0D
+1091  8960 0D 00
+1092  8962 4D 4F 44 45  ModeLabel08: DEFM "MODE 08 OF 09",13,"RESOLUTION: 800x600",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 480000 BYTES",13,13,0
+1092  8966 20 30 38 20
+1092  896A 4F 46 20 30
+1092  896E 39 0D 52 45
+1092  8972 53 4F 4C 55
+1092  8976 54 49 4F 4E
+1092  897A 3A 20 38 30
+1092  897E 30 78 36 30
+1092  8982 30 0D 43 4F
+1092  8986 4C 4F 52 3A
+1092  898A 20 38 20 42
+1092  898E 50 50 20 2F
+1092  8992 20 49 4E 44
+1092  8996 45 58 45 44
+1092  899A 20 50 41 4C
+1092  899E 45 54 54 45
+1092  89A2 0D 56 52 41
+1092  89A6 4D 3A 20 34
+1092  89AA 38 30 30 30
+1092  89AE 30 20 42 59
+1092  89B2 54 45 53 0D
+1092  89B6 0D 00
+1093  89B8 4D 4F 44 45  ModeLabel09: DEFM "MODE 09 OF 09",13,"RESOLUTION: 1024x768",13,"COLOR: 8 BPP / INDEXED PALETTE",13,"VRAM: 786432 BYTES",13,13,0
+1093  89BC 20 30 39 20
+1093  89C0 4F 46 20 30
+1093  89C4 39 0D 52 45
+1093  89C8 53 4F 4C 55
+1093  89CC 54 49 4F 4E
+1093  89D0 3A 20 31 30
+1093  89D4 32 34 78 37
+1093  89D8 36 38 0D 43
+1093  89DC 4F 4C 4F 52
+1093  89E0 3A 20 38 20
+1093  89E4 42 50 50 20
+1093  89E8 2F 20 49 4E
+1093  89EC 44 45 58 45
+1093  89F0 44 20 50 41
+1093  89F4 4C 45 54 54
+1093  89F8 45 0D 56 52
+1093  89FC 41 4D 3A 20
+1093  8A00 37 38 36 34
+1093  8A04 33 32 20 42
+1093  8A08 59 54 45 53
+1093  8A0C 0D 0D 00
+1094  8A0F
+1095  8A0F              ColorPattern:
+1096  8A0F                      ; Eight RGB565 colours, each repeated for eight adjacent pixels.
+1097  8A0F                      ; This makes eight visible bars, repeated across the 640-pixel row.
+1098  8A0F 00 00 00 00          DB $00,$00, $00,$00, $00,$00, $00,$00, $00,$00, $00,$00, $00,$00, $00,$00
+1098  8A13 00 00 00 00
+1098  8A17 00 00 00 00
+1098  8A1B 00 00 00 00
+1099  8A1F 1F 00 1F 00          DB $1F,$00, $1F,$00, $1F,$00, $1F,$00, $1F,$00, $1F,$00, $1F,$00, $1F,$00
+1099  8A23 1F 00 1F 00
+1099  8A27 1F 00 1F 00
+1099  8A2B 1F 00 1F 00
+1100  8A2F E0 07 E0 07          DB $E0,$07, $E0,$07, $E0,$07, $E0,$07, $E0,$07, $E0,$07, $E0,$07, $E0,$07
+1100  8A33 E0 07 E0 07
+1100  8A37 E0 07 E0 07
+1100  8A3B E0 07 E0 07
+1101  8A3F FF 07 FF 07          DB $FF,$07, $FF,$07, $FF,$07, $FF,$07, $FF,$07, $FF,$07, $FF,$07, $FF,$07
+1101  8A43 FF 07 FF 07
+1101  8A47 FF 07 FF 07
+1101  8A4B FF 07 FF 07
+1102  8A4F 00 F8 00 F8          DB $00,$F8, $00,$F8, $00,$F8, $00,$F8, $00,$F8, $00,$F8, $00,$F8, $00,$F8
+1102  8A53 00 F8 00 F8
+1102  8A57 00 F8 00 F8
+1102  8A5B 00 F8 00 F8
+1103  8A5F 1F F8 1F F8          DB $1F,$F8, $1F,$F8, $1F,$F8, $1F,$F8, $1F,$F8, $1F,$F8, $1F,$F8, $1F,$F8
+1103  8A63 1F F8 1F F8
+1103  8A67 1F F8 1F F8
+1103  8A6B 1F F8 1F F8
+1104  8A6F E0 FF E0 FF          DB $E0,$FF, $E0,$FF, $E0,$FF, $E0,$FF, $E0,$FF, $E0,$FF, $E0,$FF, $E0,$FF
+1104  8A73 E0 FF E0 FF
+1104  8A77 E0 FF E0 FF
+1104  8A7B E0 FF E0 FF
+1105  8A7F FF FF FF FF          DB $FF,$FF, $FF,$FF, $FF,$FF, $FF,$FF, $FF,$FF, $FF,$FF, $FF,$FF, $FF,$FF
+1105  8A83 FF FF FF FF
+1105  8A87 FF FF FF FF
+1105  8A8B FF FF FF FF
+1106  8A8F              ColorPatternEnd:
+1107  8A8F
+1108  8A8F 50 31 33 37  MsgBuild:        DEFM "P137 VGA TEST ATM710",13,10,0
+1108  8A93 20 56 47 41
+1108  8A97 20 54 45 53
+1108  8A9B 54 20 41 54
+1108  8A9F 4D 37 31 30
+1108  8AA3 0D 0A 00
+1109  8AA6 41 54 4D 20  MsgStart:        DEFM "ATM EXTERNAL VGA ADAPTER TEST START",13,10,0
+1109  8AAA 45 58 54 45
+1109  8AAE 52 4E 41 4C
+1109  8AB2 20 56 47 41
+1109  8AB6 20 41 44 41
+1109  8ABA 50 54 45 52
+1109  8ABE 20 54 45 53
+1109  8AC2 54 20 53 54
+1109  8AC6 41 52 54 0D
+1109  8ACA 0A 00
+1110  8ACC 56 47 41 20  MsgAdapterInit:  DEFM "VGA SOFTWARE MODE ON",13,10,0
+1110  8AD0 53 4F 46 54
+1110  8AD4 57 41 52 45
+1110  8AD8 20 4D 4F 44
+1110  8ADC 45 20 4F 4E
+1110  8AE0 0D 0A 00
+1111  8AE3 4D 4F 44 45  MsgModeSet:      DEFM "MODE 640X480 RGB565 SET",13,10,0
+1111  8AE7 20 36 34 30
+1111  8AEB 58 34 38 30
+1111  8AEF 20 52 47 42
+1111  8AF3 35 36 35 20
+1111  8AF7 53 45 54 0D
+1111  8AFB 0A 00
+1112  8AFD 56 52 41 4D  MsgFrameWritten: DEFM "VRAM 614400 BYTES WRITTEN",13,10,0
+1112  8B01 20 36 31 34
+1112  8B05 34 30 30 20
+1112  8B09 42 59 54 45
+1112  8B0D 53 20 57 52
+1112  8B11 49 54 54 45
+1112  8B15 4E 0D 0A 00
+1113  8B19 56 52 41 4D  MsgReadbackPass: DEFM "VRAM READBACK PASS",13,10,0
+1113  8B1D 20 52 45 41
+1113  8B21 44 42 41 43
+1113  8B25 4B 20 50 41
+1113  8B29 53 53 0D 0A
+1113  8B2D 00
+1114  8B2E 56 52 41 4D  MsgReadbackFail: DEFM "VRAM READBACK FAIL",13,10,0
+1114  8B32 20 52 45 41
+1114  8B36 44 42 41 43
+1114  8B3A 4B 20 46 41
+1114  8B3E 49 4C 0D 0A
+1114  8B42 00
+1115  8B43 56 47 41 20  MsgReady:        DEFM "VGA TEST COMPLETE - CHECK VGA WINDOW",13,10,0
+1115  8B47 54 45 53 54
+1115  8B4B 20 43 4F 4D
+1115  8B4F 50 4C 45 54
+1115  8B53 45 20 2D 20
+1115  8B57 43 48 45 43
+1115  8B5B 4B 20 56 47
+1115  8B5F 41 20 57 49
+1115  8B63 4E 44 4F 57
+1115  8B67 0D 0A 00
+1116  8B6A 56 47 41 20  MsgSweepStart:   DEFM "VGA RESOLUTION/PALETTE MATRIX START",13,10,0
+1116  8B6E 52 45 53 4F
+1116  8B72 4C 55 54 49
+1116  8B76 4F 4E 2F 50
+1116  8B7A 41 4C 45 54
+1116  8B7E 54 45 20 4D
+1116  8B82 41 54 52 49
+1116  8B86 58 20 53 54
+1116  8B8A 41 52 54 0D
+1116  8B8E 0A 00
+1117  8B90 4D 4F 44 45  MsgModePrefix:   DEFM "MODE ",0
+1117  8B94 20 00
+1118  8B96 20 42 50 50  MsgBppSuffix:    DEFM " BPP - INDEXED DAC PALETTE",13,10,0
+1118  8B9A 20 2D 20 49
+1118  8B9E 4E 44 45 58
+1118  8BA2 45 44 20 44
+1118  8BA6 41 43 20 50
+1118  8BAA 41 4C 45 54
+1118  8BAE 54 45 0D 0A
+1118  8BB2 00
+1119  8BB3 41 4C 4C 20  MsgSweepDone:    DEFM "ALL RESOLUTIONS AND PALETTES DONE",13,10,0
+1119  8BB7 52 45 53 4F
+1119  8BBB 4C 55 54 49
+1119  8BBF 4F 4E 53 20
+1119  8BC3 41 4E 44 20
+1119  8BC7 50 41 4C 45
+1119  8BCB 54 54 45 53
+1119  8BCF 20 44 4F 4E
+1119  8BD3 45 0D 0A 00
+1120  8BD7 50 41 4C 45  MsgPaletteLevel: DEFM "PALETTE LEVEL ",0
+1120  8BDB 54 54 45 20
+1120  8BDF 4C 45 56 45
+1120  8BE3 4C 20 00
+1121  8BE6 20 28 32 2F  MsgPaletteSuffix: DEFM " (2/4/16/256 COLORS - 8PX BARS)",13,10,0
+1121  8BEA 34 2F 31 36
+1121  8BEE 2F 32 35 36
+1121  8BF2 20 43 4F 4C
+1121  8BF6 4F 52 53 20
+1121  8BFA 2D 20 38 50
+1121  8BFE 58 20 42 41
+1121  8C02 52 53 29 0D
+1121  8C06 0A 00
+1122  8C08 44 41 43 20  MsgPalettePass:  DEFM "DAC READBACK PASS",13,10,0
+1122  8C0C 52 45 41 44
+1122  8C10 42 41 43 4B
+1122  8C14 20 50 41 53
+1122  8C18 53 0D 0A 00
+1123  8C1C 44 41 43 20  MsgPaletteFail:  DEFM "DAC READBACK FAIL",13,10,0
+1123  8C20 52 45 41 44
+1123  8C24 42 41 43 4B
+1123  8C28 20 46 41 49
+1123  8C2C 4C 0D 0A 00
+1124  8C30              ; Retained for the standalone legacy DAC routine below (not called by main).
+1125  8C30 32 35 36 2D  MsgDacStart:     DEFM "256-ENTRY RGB332 DAC PROGRAMMING",13,10,0
+1125  8C34 45 4E 54 52
+1125  8C38 59 20 52 47
+1125  8C3C 42 33 33 32
+1125  8C40 20 44 41 43
+1125  8C44 20 50 52 4F
+1125  8C48 47 52 41 4D
+1125  8C4C 4D 49 4E 47
+1125  8C50 0D 0A 00
+1126  8C53 32 35 36 2D  MsgDacPass:      DEFM "256-ENTRY DAC READBACK PASS",13,10,0
+1126  8C57 45 4E 54 52
+1126  8C5B 59 20 44 41
+1126  8C5F 43 20 52 45
+1126  8C63 41 44 42 41
+1126  8C67 43 4B 20 50
+1126  8C6B 41 53 53 0D
+1126  8C6F 0A 00
+1127  8C71 32 35 36 2D  MsgDacFail:      DEFM "256-ENTRY DAC READBACK FAIL",13,10,0
+1127  8C75 45 4E 54 52
+1127  8C79 59 20 44 41
+1127  8C7D 43 20 52 45
+1127  8C81 41 44 42 41
+1127  8C85 43 4B 20 46
+1127  8C89 41 49 4C 0D
+1127  8C8D 0A 00
+1128  8C8F
+1129  8C8F
+1130  8C8F 50 52 4F 4A  ScreenTitle:       DEFM "PROJECT137 - VGA ADAPTER TEST",13,13,0
+1130  8C93 45 43 54 31
+1130  8C97 33 37 20 2D
+1130  8C9B 20 56 47 41
+1130  8C9F 20 41 44 41
+1130  8CA3 50 54 45 52
+1130  8CA7 20 54 45 53
+1130  8CAB 54 0D 0D 00
+1131  8CAF 53 54 41 52  ScreenStarting:    DEFM "STARTING VGA TEST...",13,13,0
+1131  8CB3 54 49 4E 47
+1131  8CB7 20 56 47 41
+1131  8CBB 20 54 45 53
+1131  8CBF 54 2E 2E 2E
+1131  8CC3 0D 0D 00
+1132  8CC6 41 54 4D 20  ScreenShadowReady: DEFM "ATM SHADOW PORTS OPENED",13,13,0
+1132  8CCA 53 48 41 44
+1132  8CCE 4F 57 20 50
+1132  8CD2 4F 52 54 53
+1132  8CD6 20 4F 50 45
+1132  8CDA 4E 45 44 0D
+1132  8CDE 0D 00
+1133  8CE0 41 43 54 49  ScreenModeHeading: DEFM "ACTIVE VGA MODE:",13,13,0
+1133  8CE4 56 45 20 56
+1133  8CE8 47 41 20 4D
+1133  8CEC 4F 44 45 3A
+1133  8CF0 0D 0D 00
+1134  8CF3 49 4E 49 54  ScreenInitialMode: DEFM "INITIAL TEST 640x480",13,"COLOR: 16 BPP / RGB565",13,13,0
+1134  8CF7 49 41 4C 20
+1134  8CFB 54 45 53 54
+1134  8CFF 20 36 34 30
+1134  8D03 78 34 38 30
+1134  8D07 0D 43 4F 4C
+1134  8D0B 4F 52 3A 20
+1134  8D0F 31 36 20 42
+1134  8D13 50 50 20 2F
+1134  8D17 20 52 47 42
+1134  8D1B 35 36 35 0D
+1134  8D1F 0D 00
+1135  8D21 54 45 53 54  ScreenInitialTestRunning: DEFM "TEST: WRITE FRAMEBUFFER",13,"VRAM: 614400 BYTES",13,0
+1135  8D25 3A 20 57 52
+1135  8D29 49 54 45 20
+1135  8D2D 46 52 41 4D
+1135  8D31 45 42 55 46
+1135  8D35 46 45 52 0D
+1135  8D39 56 52 41 4D
+1135  8D3D 3A 20 36 31
+1135  8D41 34 34 30 30
+1135  8D45 20 42 59 54
+1135  8D49 45 53 0D 00
+1136  8D4D 54 45 53 54  ScreenTestRunning: DEFM "TEST: WRITE FRAMEBUFFER",13,0
+1136  8D51 3A 20 57 52
+1136  8D55 49 54 45 20
+1136  8D59 46 52 41 4D
+1136  8D5D 45 42 55 46
+1136  8D61 46 45 52 0D
+1136  8D65 00
+1137  8D66 53 54 41 54  ScreenWriteRunning: DEFM "STATUS: WRITING - PLEASE WAIT",13,13,0
+1137  8D6A 55 53 3A 20
+1137  8D6E 57 52 49 54
+1137  8D72 49 4E 47 20
+1137  8D76 2D 20 50 4C
+1137  8D7A 45 41 53 45
+1137  8D7E 20 57 41 49
+1137  8D82 54 0D 0D 00
+1138  8D86 53 54 41 54  ScreenWritePassed: DEFM "STATUS: WRITE COMPLETE",13,13,0
+1138  8D8A 55 53 3A 20
+1138  8D8E 57 52 49 54
+1138  8D92 45 20 43 4F
+1138  8D96 4D 50 4C 45
+1138  8D9A 54 45 0D 0D
+1138  8D9E 00
+1139  8D9F 50 52 45 53  ScreenNextHint: DEFM "PRESS SPACE FOR NEXT TEST",13,"WAITING FOR SPACE...",0
+1139  8DA3 53 20 53 50
+1139  8DA7 41 43 45 20
+1139  8DAB 46 4F 52 20
+1139  8DAF 4E 45 58 54
+1139  8DB3 20 54 45 53
+1139  8DB7 54 0D 57 41
+1139  8DBB 49 54 49 4E
+1139  8DBF 47 20 46 4F
+1139  8DC3 52 20 53 50
+1139  8DC7 41 43 45 2E
+1139  8DCB 2E 2E 00
+1140  8DCE 39 20 52 45  ScreenAllDone: DEFM "9 RESOLUTIONS x 4 PALETTES",13,13,"TEST COMPLETE",0
+1140  8DD2 53 4F 4C 55
+1140  8DD6 54 49 4F 4E
+1140  8DDA 53 20 78 20
+1140  8DDE 34 20 50 41
+1140  8DE2 4C 45 54 54
+1140  8DE6 45 53 0D 0D
+1140  8DEA 54 45 53 54
+1140  8DEE 20 43 4F 4D
+1140  8DF2 50 4C 45 54
+1140  8DF6 45 00
+1141  8DF8 49 4E 44 45  ScreenDacHeading: DEFM "INDEXED VGA PALETTE TEST",13,13,0
+1141  8DFC 58 45 44 20
+1141  8E00 56 47 41 20
+1141  8E04 50 41 4C 45
+1141  8E08 54 54 45 20
+1141  8E0C 54 45 53 54
+1141  8E10 0D 0D 00
+1142  8E13 50 41 4C 45  ScreenDacWriting: DEFM "PALETTE: SELECTED COLOR COUNT",13,"PATTERN: 8-PIXEL COLOR BARS",13,"STATUS: PROGRAMMING + READBACK",0
+1142  8E17 54 54 45 3A
+1142  8E1B 20 53 45 4C
+1142  8E1F 45 43 54 45
+1142  8E23 44 20 43 4F
+1142  8E27 4C 4F 52 20
+1142  8E2B 43 4F 55 4E
+1142  8E2F 54 0D 50 41
+1142  8E33 54 54 45 52
+1142  8E37 4E 3A 20 38
+1142  8E3B 2D 50 49 58
+1142  8E3F 45 4C 20 43
+1142  8E43 4F 4C 4F 52
+1142  8E47 20 42 41 52
+1142  8E4B 53 0D 53 54
+1142  8E4F 41 54 55 53
+1142  8E53 3A 20 50 52
+1142  8E57 4F 47 52 41
+1142  8E5B 4D 4D 49 4E
+1142  8E5F 47 20 2B 20
+1142  8E63 52 45 41 44
+1142  8E67 42 41 43 4B
+1142  8E6B 00
+1143  8E6C 50 41 4C 45  ScreenDacPassed: DEFM "PALETTE: 256 RGB COLORS",13,"DAC READBACK: PASS (768 BYTES)",0
+1143  8E70 54 54 45 3A
+1143  8E74 20 32 35 36
+1143  8E78 20 52 47 42
+1143  8E7C 20 43 4F 4C
+1143  8E80 4F 52 53 0D
+1143  8E84 44 41 43 20
+1143  8E88 52 45 41 44
+1143  8E8C 42 41 43 4B
+1143  8E90 3A 20 50 41
+1143  8E94 53 53 20 28
+1143  8E98 37 36 38 20
+1143  8E9C 42 59 54 45
+1143  8EA0 53 29 00
+1144  8EA3 44 41 43 20  ScreenDacFailed: DEFM "DAC PALETTE READBACK: FAIL",13,"CHECK PORTS 3C7h / 3C9h",0
+1144  8EA7 50 41 4C 45
+1144  8EAB 54 54 45 20
+1144  8EAF 52 45 41 44
+1144  8EB3 42 41 43 4B
+1144  8EB7 3A 20 46 41
+1144  8EBB 49 4C 0D 43
+1144  8EBF 48 45 43 4B
+1144  8EC3 20 50 4F 52
+1144  8EC7 54 53 20 33
+1144  8ECB 43 37 68 20
+1144  8ECF 2F 20 33 43
+1144  8ED3 39 68 00
+1145  8ED6
+1146  8ED6              Dac332Palette:
+1147  8ED6 00 00 00 3F          DB $00,$00,$00,$3F,$3F,$3F,$3F,$00,$00,$00,$3F,$00,$00,$00,$2A,$00,$2A,$2A,$2A,$00,$2A,$2A,$15,$00,$15,$15,$15,$15,$15,$3F,$15,$3F,$15,$15,$3F,$3F,$3F,$15,$15,$3F,$15,$3F,$3F,$3F,$15,$3F,$3F,$3F
+1147  8EDA 3F 3F 3F 00
+1147  8EDE 00 00 3F 00
+1147  8EE2 00 00 2A 00
+1147  8EE6 2A 2A 2A 00
+1147  8EEA 2A 2A 15 00
+1147  8EEE 15 15 15 15
+1147  8EF2 15 3F 15 3F
+1147  8EF6 15 15 3F 3F
+1147  8EFA 3F 15 15 3F
+1147  8EFE 15 3F 3F 3F
+1147  8F02 15 3F 3F 3F
+1148  8F06 09 15 00 09          DB $09,$15,$00,$09,$2A,$00,$09,$3F,$00,$12,$00,$00,$12,$15,$00,$12
+1148  8F0A 2A 00 09 3F
+1148  8F0E 00 12 00 00
+1148  8F12 12 15 00 12
+1149  8F16 2A 00 12 3F          DB $2A,$00,$12,$3F,$00,$1B,$00,$00,$1B,$15,$00,$1B,$2A,$00,$1B,$3F
+1149  8F1A 00 1B 00 00
+1149  8F1E 1B 15 00 1B
+1149  8F22 2A 00 1B 3F
+1150  8F26 00 24 00 00          DB $00,$24,$00,$00,$24,$15,$00,$24,$2A,$00,$24,$3F,$00,$2D,$00,$00
+1150  8F2A 24 15 00 24
+1150  8F2E 2A 00 24 3F
+1150  8F32 00 2D 00 00
+1151  8F36 2D 15 00 2D          DB $2D,$15,$00,$2D,$2A,$00,$2D,$3F,$00,$36,$00,$00,$36,$15,$00,$36
+1151  8F3A 2A 00 2D 3F
+1151  8F3E 00 36 00 00
+1151  8F42 36 15 00 36
+1152  8F46 2A 00 36 3F          DB $2A,$00,$36,$3F,$00,$3F,$00,$00,$3F,$15,$00,$3F,$2A,$00,$3F,$3F
+1152  8F4A 00 3F 00 00
+1152  8F4E 3F 15 00 3F
+1152  8F52 2A 00 3F 3F
+1153  8F56 09 00 00 09          DB $09,$00,$00,$09,$00,$15,$09,$00,$2A,$09,$00,$3F,$09,$09,$00,$09
+1153  8F5A 00 15 09 00
+1153  8F5E 2A 09 00 3F
+1153  8F62 09 09 00 09
+1154  8F66 09 15 09 09          DB $09,$15,$09,$09,$2A,$09,$09,$3F,$09,$12,$00,$09,$12,$15,$09,$12
+1154  8F6A 2A 09 09 3F
+1154  8F6E 09 12 00 09
+1154  8F72 12 15 09 12
+1155  8F76 2A 09 12 3F          DB $2A,$09,$12,$3F,$09,$1B,$00,$09,$1B,$15,$09,$1B,$2A,$09,$1B,$3F
+1155  8F7A 09 1B 00 09
+1155  8F7E 1B 15 09 1B
+1155  8F82 2A 09 1B 3F
+1156  8F86 09 24 00 09          DB $09,$24,$00,$09,$24,$15,$09,$24,$2A,$09,$24,$3F,$09,$2D,$00,$09
+1156  8F8A 24 15 09 24
+1156  8F8E 2A 09 24 3F
+1156  8F92 09 2D 00 09
+1157  8F96 2D 15 09 2D          DB $2D,$15,$09,$2D,$2A,$09,$2D,$3F,$09,$36,$00,$09,$36,$15,$09,$36
+1157  8F9A 2A 09 2D 3F
+1157  8F9E 09 36 00 09
+1157  8FA2 36 15 09 36
+1158  8FA6 2A 09 36 3F          DB $2A,$09,$36,$3F,$09,$3F,$00,$09,$3F,$15,$09,$3F,$2A,$09,$3F,$3F
+1158  8FAA 09 3F 00 09
+1158  8FAE 3F 15 09 3F
+1158  8FB2 2A 09 3F 3F
+1159  8FB6 12 00 00 12          DB $12,$00,$00,$12,$00,$15,$12,$00,$2A,$12,$00,$3F,$12,$09,$00,$12
+1159  8FBA 00 15 12 00
+1159  8FBE 2A 12 00 3F
+1159  8FC2 12 09 00 12
+1160  8FC6 09 15 12 09          DB $09,$15,$12,$09,$2A,$12,$09,$3F,$12,$12,$00,$12,$12,$15,$12,$12
+1160  8FCA 2A 12 09 3F
+1160  8FCE 12 12 00 12
+1160  8FD2 12 15 12 12
+1161  8FD6 2A 12 12 3F          DB $2A,$12,$12,$3F,$12,$1B,$00,$12,$1B,$15,$12,$1B,$2A,$12,$1B,$3F
+1161  8FDA 12 1B 00 12
+1161  8FDE 1B 15 12 1B
+1161  8FE2 2A 12 1B 3F
+1162  8FE6 12 24 00 12          DB $12,$24,$00,$12,$24,$15,$12,$24,$2A,$12,$24,$3F,$12,$2D,$00,$12
+1162  8FEA 24 15 12 24
+1162  8FEE 2A 12 24 3F
+1162  8FF2 12 2D 00 12
+1163  8FF6 2D 15 12 2D          DB $2D,$15,$12,$2D,$2A,$12,$2D,$3F,$12,$36,$00,$12,$36,$15,$12,$36
+1163  8FFA 2A 12 2D 3F
+1163  8FFE 12 36 00 12
+1163  9002 36 15 12 36
+1164  9006 2A 12 36 3F          DB $2A,$12,$36,$3F,$12,$3F,$00,$12,$3F,$15,$12,$3F,$2A,$12,$3F,$3F
+1164  900A 12 3F 00 12
+1164  900E 3F 15 12 3F
+1164  9012 2A 12 3F 3F
+1165  9016 1B 00 00 1B          DB $1B,$00,$00,$1B,$00,$15,$1B,$00,$2A,$1B,$00,$3F,$1B,$09,$00,$1B
+1165  901A 00 15 1B 00
+1165  901E 2A 1B 00 3F
+1165  9022 1B 09 00 1B
+1166  9026 09 15 1B 09          DB $09,$15,$1B,$09,$2A,$1B,$09,$3F,$1B,$12,$00,$1B,$12,$15,$1B,$12
+1166  902A 2A 1B 09 3F
+1166  902E 1B 12 00 1B
+1166  9032 12 15 1B 12
+1167  9036 2A 1B 12 3F          DB $2A,$1B,$12,$3F,$1B,$1B,$00,$1B,$1B,$15,$1B,$1B,$2A,$1B,$1B,$3F
+1167  903A 1B 1B 00 1B
+1167  903E 1B 15 1B 1B
+1167  9042 2A 1B 1B 3F
+1168  9046 1B 24 00 1B          DB $1B,$24,$00,$1B,$24,$15,$1B,$24,$2A,$1B,$24,$3F,$1B,$2D,$00,$1B
+1168  904A 24 15 1B 24
+1168  904E 2A 1B 24 3F
+1168  9052 1B 2D 00 1B
+1169  9056 2D 15 1B 2D          DB $2D,$15,$1B,$2D,$2A,$1B,$2D,$3F,$1B,$36,$00,$1B,$36,$15,$1B,$36
+1169  905A 2A 1B 2D 3F
+1169  905E 1B 36 00 1B
+1169  9062 36 15 1B 36
+1170  9066 2A 1B 36 3F          DB $2A,$1B,$36,$3F,$1B,$3F,$00,$1B,$3F,$15,$1B,$3F,$2A,$1B,$3F,$3F
+1170  906A 1B 3F 00 1B
+1170  906E 3F 15 1B 3F
+1170  9072 2A 1B 3F 3F
+1171  9076 24 00 00 24          DB $24,$00,$00,$24,$00,$15,$24,$00,$2A,$24,$00,$3F,$24,$09,$00,$24
+1171  907A 00 15 24 00
+1171  907E 2A 24 00 3F
+1171  9082 24 09 00 24
+1172  9086 09 15 24 09          DB $09,$15,$24,$09,$2A,$24,$09,$3F,$24,$12,$00,$24,$12,$15,$24,$12
+1172  908A 2A 24 09 3F
+1172  908E 24 12 00 24
+1172  9092 12 15 24 12
+1173  9096 2A 24 12 3F          DB $2A,$24,$12,$3F,$24,$1B,$00,$24,$1B,$15,$24,$1B,$2A,$24,$1B,$3F
+1173  909A 24 1B 00 24
+1173  909E 1B 15 24 1B
+1173  90A2 2A 24 1B 3F
+1174  90A6 24 24 00 24          DB $24,$24,$00,$24,$24,$15,$24,$24,$2A,$24,$24,$3F,$24,$2D,$00,$24
+1174  90AA 24 15 24 24
+1174  90AE 2A 24 24 3F
+1174  90B2 24 2D 00 24
+1175  90B6 2D 15 24 2D          DB $2D,$15,$24,$2D,$2A,$24,$2D,$3F,$24,$36,$00,$24,$36,$15,$24,$36
+1175  90BA 2A 24 2D 3F
+1175  90BE 24 36 00 24
+1175  90C2 36 15 24 36
+1176  90C6 2A 24 36 3F          DB $2A,$24,$36,$3F,$24,$3F,$00,$24,$3F,$15,$24,$3F,$2A,$24,$3F,$3F
+1176  90CA 24 3F 00 24
+1176  90CE 3F 15 24 3F
+1176  90D2 2A 24 3F 3F
+1177  90D6 2D 00 00 2D          DB $2D,$00,$00,$2D,$00,$15,$2D,$00,$2A,$2D,$00,$3F,$2D,$09,$00,$2D
+1177  90DA 00 15 2D 00
+1177  90DE 2A 2D 00 3F
+1177  90E2 2D 09 00 2D
+1178  90E6 09 15 2D 09          DB $09,$15,$2D,$09,$2A,$2D,$09,$3F,$2D,$12,$00,$2D,$12,$15,$2D,$12
+1178  90EA 2A 2D 09 3F
+1178  90EE 2D 12 00 2D
+1178  90F2 12 15 2D 12
+1179  90F6 2A 2D 12 3F          DB $2A,$2D,$12,$3F,$2D,$1B,$00,$2D,$1B,$15,$2D,$1B,$2A,$2D,$1B,$3F
+1179  90FA 2D 1B 00 2D
+1179  90FE 1B 15 2D 1B
+1179  9102 2A 2D 1B 3F
+1180  9106 2D 24 00 2D          DB $2D,$24,$00,$2D,$24,$15,$2D,$24,$2A,$2D,$24,$3F,$2D,$2D,$00,$2D
+1180  910A 24 15 2D 24
+1180  910E 2A 2D 24 3F
+1180  9112 2D 2D 00 2D
+1181  9116 2D 15 2D 2D          DB $2D,$15,$2D,$2D,$2A,$2D,$2D,$3F,$2D,$36,$00,$2D,$36,$15,$2D,$36
+1181  911A 2A 2D 2D 3F
+1181  911E 2D 36 00 2D
+1181  9122 36 15 2D 36
+1182  9126 2A 2D 36 3F          DB $2A,$2D,$36,$3F,$2D,$3F,$00,$2D,$3F,$15,$2D,$3F,$2A,$2D,$3F,$3F
+1182  912A 2D 3F 00 2D
+1182  912E 3F 15 2D 3F
+1182  9132 2A 2D 3F 3F
+1183  9136 36 00 00 36          DB $36,$00,$00,$36,$00,$15,$36,$00,$2A,$36,$00,$3F,$36,$09,$00,$36
+1183  913A 00 15 36 00
+1183  913E 2A 36 00 3F
+1183  9142 36 09 00 36
+1184  9146 09 15 36 09          DB $09,$15,$36,$09,$2A,$36,$09,$3F,$36,$12,$00,$36,$12,$15,$36,$12
+1184  914A 2A 36 09 3F
+1184  914E 36 12 00 36
+1184  9152 12 15 36 12
+1185  9156 2A 36 12 3F          DB $2A,$36,$12,$3F,$36,$1B,$00,$36,$1B,$15,$36,$1B,$2A,$36,$1B,$3F
+1185  915A 36 1B 00 36
+1185  915E 1B 15 36 1B
+1185  9162 2A 36 1B 3F
+1186  9166 36 24 00 36          DB $36,$24,$00,$36,$24,$15,$36,$24,$2A,$36,$24,$3F,$36,$2D,$00,$36
+1186  916A 24 15 36 24
+1186  916E 2A 36 24 3F
+1186  9172 36 2D 00 36
+1187  9176 2D 15 36 2D          DB $2D,$15,$36,$2D,$2A,$36,$2D,$3F,$36,$36,$00,$36,$36,$15,$36,$36
+1187  917A 2A 36 2D 3F
+1187  917E 36 36 00 36
+1187  9182 36 15 36 36
+1188  9186 2A 36 36 3F          DB $2A,$36,$36,$3F,$36,$3F,$00,$36,$3F,$15,$36,$3F,$2A,$36,$3F,$3F
+1188  918A 36 3F 00 36
+1188  918E 3F 15 36 3F
+1188  9192 2A 36 3F 3F
+1189  9196 3F 00 00 3F          DB $3F,$00,$00,$3F,$00,$15,$3F,$00,$2A,$3F,$00,$3F,$3F,$09,$00,$3F
+1189  919A 00 15 3F 00
+1189  919E 2A 3F 00 3F
+1189  91A2 3F 09 00 3F
+1190  91A6 09 15 3F 09          DB $09,$15,$3F,$09,$2A,$3F,$09,$3F,$3F,$12,$00,$3F,$12,$15,$3F,$12
+1190  91AA 2A 3F 09 3F
+1190  91AE 3F 12 00 3F
+1190  91B2 12 15 3F 12
+1191  91B6 2A 3F 12 3F          DB $2A,$3F,$12,$3F,$3F,$1B,$00,$3F,$1B,$15,$3F,$1B,$2A,$3F,$1B,$3F
+1191  91BA 3F 1B 00 3F
+1191  91BE 1B 15 3F 1B
+1191  91C2 2A 3F 1B 3F
+1192  91C6 3F 24 00 3F          DB $3F,$24,$00,$3F,$24,$15,$3F,$24,$2A,$3F,$24,$3F,$3F,$2D,$00,$3F
+1192  91CA 24 15 3F 24
+1192  91CE 2A 3F 24 3F
+1192  91D2 3F 2D 00 3F
+1193  91D6 2D 15 3F 2D          DB $2D,$15,$3F,$2D,$2A,$3F,$2D,$3F,$3F,$36,$00,$3F,$36,$15,$3F,$36
+1193  91DA 2A 3F 2D 3F
+1193  91DE 3F 36 00 3F
+1193  91E2 36 15 3F 36
+1194  91E6 2A 3F 36 3F          DB $2A,$3F,$36,$3F,$3F,$3F,$00,$3F,$3F,$15,$3F,$3F,$2A,$3F,$3F,$3F
+1194  91EA 3F 3F 00 3F
+1194  91EE 3F 15 3F 3F
+1194  91F2 2A 3F 3F 3F
+1195  91F6              Dac332PaletteEnd:
+1196  91F6
+1197  91F6              ; Exact 768-byte font from Project112/src/font88.bin.
+1198  91F6              Font88_132:
+1199  91F6 00 00 00 00          DB      $00,$00,$00,$00,$00,$00,$00,$00,$00,$08,$08,$08,$08,$00,$08,$00
+1199  91FA 00 00 00 00
+1199  91FE 00 08 08 08
+1199  9202 08 00 08 00
+1200  9206 00 00 00 14          DB      $00,$00,$00,$14,$14,$00,$00,$00,$0C,$14,$3E,$14,$3E,$18,$28,$00
+1200  920A 14 00 00 00
+1200  920E 0C 14 3E 14
+1200  9212 3E 18 28 00
+1201  9216 08 3E 28 1C          DB      $08,$3E,$28,$1C,$0A,$3E,$08,$00,$00,$38,$28,$3C,$1E,$0A,$0E,$00
+1201  921A 0A 3E 08 00
+1201  921E 00 38 28 3C
+1201  9222 1E 0A 0E 00
+1202  9226 00 0E 08 0C          DB      $00,$0E,$08,$0C,$16,$14,$0E,$00,$00,$00,$00,$08,$08,$00,$00,$00
+1202  922A 16 14 0E 00
+1202  922E 00 00 00 08
+1202  9232 08 00 00 00
+1203  9236 04 08 08 08          DB      $04,$08,$08,$08,$08,$08,$04,$00,$08,$04,$04,$04,$04,$04,$08,$00
+1203  923A 08 08 04 00
+1203  923E 08 04 04 04
+1203  9242 04 04 08 00
+1204  9246 00 00 2A 1C          DB      $00,$00,$2A,$1C,$1C,$2A,$00,$00,$00,$08,$08,$3E,$08,$08,$00,$00
+1204  924A 1C 2A 00 00
+1204  924E 00 08 08 3E
+1204  9252 08 08 00 00
+1205  9256 00 00 00 08          DB      $00,$00,$00,$08,$08,$00,$00,$00,$00,$00,$00,$0C,$00,$00,$00,$00
+1205  925A 08 00 00 00
+1205  925E 00 00 00 0C
+1205  9262 00 00 00 00
+1206  9266 00 00 00 08          DB      $00,$00,$00,$08,$00,$00,$00,$00,$02,$04,$04,$0C,$08,$08,$10,$00
+1206  926A 00 00 00 00
+1206  926E 02 04 04 0C
+1206  9272 08 08 10 00
+1207  9276 00 0C 12 1A          DB      $00,$0C,$12,$1A,$12,$12,$0C,$00,$00,$18,$08,$08,$08,$08,$1C,$00
+1207  927A 12 12 0C 00
+1207  927E 00 18 08 08
+1207  9282 08 08 1C 00
+1208  9286 00 1C 02 02          DB      $00,$1C,$02,$02,$04,$08,$1E,$00,$00,$1C,$02,$02,$0C,$02,$1E,$00
+1208  928A 04 08 1E 00
+1208  928E 00 1C 02 02
+1208  9292 0C 02 1E 00
+1209  9296 00 04 0C 0C          DB      $00,$04,$0C,$0C,$14,$1E,$04,$00,$00,$1E,$10,$1C,$02,$02,$1C,$00
+1209  929A 14 1E 04 00
+1209  929E 00 1E 10 1C
+1209  92A2 02 02 1C 00
+1210  92A6 00 0E 18 10          DB      $00,$0E,$18,$10,$1E,$12,$0E,$00,$00,$1E,$02,$04,$04,$04,$08,$00
+1210  92AA 1E 12 0E 00
+1210  92AE 00 1E 02 04
+1210  92B2 04 04 08 00
+1211  92B6 00 0C 12 12          DB      $00,$0C,$12,$12,$0C,$12,$1E,$00,$00,$1C,$12,$1E,$02,$06,$1C,$00
+1211  92BA 0C 12 1E 00
+1211  92BE 00 1C 12 1E
+1211  92C2 02 06 1C 00
+1212  92C6 00 00 08 00          DB      $00,$00,$08,$00,$00,$08,$00,$00,$00,$08,$00,$00,$08,$08,$00,$00
+1212  92CA 00 08 00 00
+1212  92CE 00 08 00 00
+1212  92D2 08 08 00 00
+1213  92D6 00 00 02 1C          DB      $00,$00,$02,$1C,$18,$06,$00,$00,$00,$00,$1E,$00,$1E,$00,$00,$00
+1213  92DA 18 06 00 00
+1213  92DE 00 00 1E 00
+1213  92E2 1E 00 00 00
+1214  92E6 00 00 10 0E          DB      $00,$00,$10,$0E,$06,$18,$00,$00,$00,$1C,$0C,$08,$08,$00,$08,$00
+1214  92EA 06 18 00 00
+1214  92EE 00 1C 0C 08
+1214  92F2 08 00 08 00
+1215  92F6 00 0C 12 16          DB      $00,$0C,$12,$16,$16,$10,$0C,$00,$00,$0C,$0C,$0C,$0C,$1E,$12,$00
+1215  92FA 16 10 0C 00
+1215  92FE 00 0C 0C 0C
+1215  9302 0C 1E 12 00
+1216  9306 00 1C 12 12          DB      $00,$1C,$12,$12,$1C,$12,$1E,$00,$00,$0E,$10,$10,$10,$10,$0E,$00
+1216  930A 1C 12 1E 00
+1216  930E 00 0E 10 10
+1216  9312 10 10 0E 00
+1217  9316 00 1C 12 12          DB      $00,$1C,$12,$12,$12,$12,$1C,$00,$00,$1E,$10,$10,$1E,$10,$1E,$00
+1217  931A 12 12 1C 00
+1217  931E 00 1E 10 10
+1217  9322 1E 10 1E 00
+1218  9326 00 1E 10 10          DB      $00,$1E,$10,$10,$1E,$10,$10,$00,$00,$0E,$10,$10,$16,$12,$0E,$00
+1218  932A 1E 10 10 00
+1218  932E 00 0E 10 10
+1218  9332 16 12 0E 00
+1219  9336 00 12 12 12          DB      $00,$12,$12,$12,$1E,$12,$12,$00,$00,$1C,$08,$08,$08,$08,$1C,$00
+1219  933A 1E 12 12 00
+1219  933E 00 1C 08 08
+1219  9342 08 08 1C 00
+1220  9346 00 0C 04 04          DB      $00,$0C,$04,$04,$04,$04,$1C,$00,$00,$12,$14,$18,$14,$14,$12,$00
+1220  934A 04 04 1C 00
+1220  934E 00 12 14 18
+1220  9352 14 14 12 00
+1221  9356 00 10 10 10          DB      $00,$10,$10,$10,$10,$10,$1E,$00,$00,$12,$1E,$1E,$1E,$12,$12,$00
+1221  935A 10 10 1E 00
+1221  935E 00 12 1E 1E
+1221  9362 1E 12 12 00
+1222  9366 00 12 1A 1A          DB      $00,$12,$1A,$1A,$16,$16,$12,$00,$00,$0C,$12,$12,$12,$12,$0C,$00
+1222  936A 16 16 12 00
+1222  936E 00 0C 12 12
+1222  9372 12 12 0C 00
+1223  9376 00 1E 12 1E          DB      $00,$1E,$12,$1E,$10,$10,$10,$00,$0C,$12,$12,$12,$12,$0C,$02,$00
+1223  937A 10 10 10 00
+1223  937E 0C 12 12 12
+1223  9382 12 0C 02 00
+1224  9386 00 3C 24 38          DB      $00,$3C,$24,$38,$2C,$24,$22,$00,$00,$0E,$10,$1C,$06,$02,$1E,$00
+1224  938A 2C 24 22 00
+1224  938E 00 0E 10 1C
+1224  9392 06 02 1E 00
+1225  9396 00 3E 08 08          DB      $00,$3E,$08,$08,$08,$08,$08,$00,$00,$12,$12,$12,$12,$12,$0C,$00
+1225  939A 08 08 08 00
+1225  939E 00 12 12 12
+1225  93A2 12 12 0C 00
+1226  93A6 00 12 12 0C          DB      $00,$12,$12,$0C,$0C,$0C,$0C,$00,$00,$22,$22,$2A,$14,$14,$14,$00
+1226  93AA 0C 0C 0C 00
+1226  93AE 00 22 22 2A
+1226  93B2 14 14 14 00
+1227  93B6 00 12 0C 0C          DB      $00,$12,$0C,$0C,$0C,$0C,$12,$00,$00,$22,$14,$08,$08,$08,$08,$00
+1227  93BA 0C 0C 12 00
+1227  93BE 00 22 14 08
+1227  93C2 08 08 08 00
+1228  93C6 00 1E 04 04          DB      $00,$1E,$04,$04,$08,$08,$1E,$00,$0C,$08,$08,$08,$08,$08,$0C,$00
+1228  93CA 08 08 1E 00
+1228  93CE 0C 08 08 08
+1228  93D2 08 08 0C 00
+1229  93D6 10 08 08 0C          DB      $10,$08,$08,$0C,$04,$04,$02,$00,$0C,$04,$04,$04,$04,$04,$0C,$00
+1229  93DA 04 04 02 00
+1229  93DE 0C 04 04 04
+1229  93E2 04 04 0C 00
+1230  93E6 00 00 00 0C          DB      $00,$00,$00,$0C,$12,$00,$00,$00,$00,$00,$00,$3E,$00,$00,$00,$00
+1230  93EA 12 00 00 00
+1230  93EE 00 00 00 3E
+1230  93F2 00 00 00 00
+1231  93F6 00 00 00 08          DB      $00,$00,$00,$08,$00,$00,$00,$00,$00,$00,$1E,$1E,$12,$1E,$00,$00
+1231  93FA 00 00 00 00
+1231  93FE 00 00 1E 1E
+1231  9402 12 1E 00 00
+1232  9406 10 10 10 1C          DB      $10,$10,$10,$1C,$12,$12,$1C,$00,$00,$00,$0C,$10,$10,$0C,$00,$00
+1232  940A 12 12 1C 00
+1232  940E 00 00 0C 10
+1232  9412 10 0C 00 00
+1233  9416 02 02 02 0E          DB      $02,$02,$02,$0E,$12,$12,$0E,$00,$00,$00,$0E,$1E,$10,$0E,$00,$00
+1233  941A 12 12 0E 00
+1233  941E 00 00 0E 1E
+1233  9422 10 0E 00 00
+1234  9426 06 08 08 1E          DB      $06,$08,$08,$1E,$08,$08,$08,$00,$00,$0E,$12,$12,$0E,$02,$1C,$00
+1234  942A 08 08 08 00
+1234  942E 00 0E 12 12
+1234  9432 0E 02 1C 00
+1235  9436 10 10 10 1E          DB      $10,$10,$10,$1E,$12,$12,$12,$00,$08,$00,$00,$18,$08,$08,$1C,$00
+1235  943A 12 12 12 00
+1235  943E 08 00 00 18
+1235  9442 08 08 1C 00
+1236  9446 04 00 00 0C          DB      $04,$00,$00,$0C,$04,$04,$04,$1C,$10,$10,$10,$16,$1C,$1C,$16,$00
+1236  944A 04 04 04 1C
+1236  944E 10 10 10 16
+1236  9452 1C 1C 16 00
+1237  9456 18 08 08 08          DB      $18,$08,$08,$08,$08,$08,$0E,$00,$00,$00,$3E,$2A,$2A,$2A,$00,$00
+1237  945A 08 08 0E 00
+1237  945E 00 00 3E 2A
+1237  9462 2A 2A 00 00
+1238  9466 00 00 1E 12          DB      $00,$00,$1E,$12,$12,$12,$00,$00,$00,$00,$0C,$12,$12,$0C,$00,$00
+1238  946A 12 12 00 00
+1238  946E 00 00 0C 12
+1238  9472 12 0C 00 00
+1239  9476 00 1C 12 12          DB      $00,$1C,$12,$12,$1C,$10,$10,$00,$00,$0E,$12,$12,$0E,$02,$02,$00
+1239  947A 1C 10 10 00
+1239  947E 00 0E 12 12
+1239  9482 0E 02 02 00
+1240  9486 00 00 1C 10          DB      $00,$00,$1C,$10,$10,$10,$00,$00,$00,$00,$1E,$1C,$02,$1E,$00,$00
+1240  948A 10 10 00 00
+1240  948E 00 00 1E 1C
+1240  9492 02 1E 00 00
+1241  9496 00 08 1E 08          DB      $00,$08,$1E,$08,$08,$0E,$00,$00,$00,$00,$12,$12,$12,$1E,$00,$00
+1241  949A 08 0E 00 00
+1241  949E 00 00 12 12
+1241  94A2 12 1E 00 00
+1242  94A6 00 00 12 0C          DB      $00,$00,$12,$0C,$0C,$0C,$00,$00,$00,$00,$22,$2A,$1C,$14,$00,$00
+1242  94AA 0C 0C 00 00
+1242  94AE 00 00 22 2A
+1242  94B2 1C 14 00 00
+1243  94B6 00 00 1E 0C          DB      $00,$00,$1E,$0C,$0C,$1E,$00,$00,$00,$12,$0C,$0C,$08,$08,$18,$00
+1243  94BA 0C 1E 00 00
+1243  94BE 00 12 0C 0C
+1243  94C2 08 08 18 00
+1244  94C6 00 00 1E 0C          DB      $00,$00,$1E,$0C,$08,$1E,$00,$00,$0C,$08,$08,$10,$08,$08,$0C,$00
+1244  94CA 08 1E 00 00
+1244  94CE 0C 08 08 10
+1244  94D2 08 08 0C 00
+1245  94D6 08 08 08 08          DB      $08,$08,$08,$08,$08,$08,$08,$08,$18,$08,$08,$04,$08,$08,$18,$00
+1245  94DA 08 08 08 08
+1245  94DE 18 08 08 04
+1245  94E2 08 08 18 00
+1246  94E6 00 00 00 1E          DB      $00,$00,$00,$1E,$00,$00,$00,$00,$1E,$12,$12,$12,$12,$12,$1E,$00
+1246  94EA 00 00 00 00
+1246  94EE 1E 12 12 12
+1246  94F2 12 12 1E 00
+1247  94F6              ProgramEnd:
+1248  94F6
+1249  94F6              ; =========================================================================
+1250  94F6              ; TR-DOS BASIC loader. Loads VGATEST.C at 8000h and starts it.
+1251  94F6              ; =========================================================================
+1252  94F6                      ORG     $B000
+1253  B000              CLEAR       EQU $FD
+1254  B000              LOAD        EQU $EF
+1255  B000              CODE        EQU $AF
+1256  B000              REM         EQU $EA
+1257  B000              RANDOMIZE   EQU $F9
+1258  B000              USR         EQU $C0
+1259  B000              OUT_CMD     EQU $DF
+1260  B000              VAL         EQU $B0
+1261  B000
+1262  B000              basic_loader:
+1263  B000 00 0A                DB      0,10
+1264  B002 20 00                DW      l10_len
+1265  B004 DF 32 33 39  l10:    DB      OUT_CMD, "239", $0E, $00, $00, $EF, $00, $00, ",", "1", $0E, $00, $00, $01, $00, $00, ":", CLEAR, "32767", $0E, $00, $00, $7F, $FF, $00, $0D
+1265  B008 0E 00 00 EF
+1265  B00C 00 00 2C 31
+1265  B010 0E 00 00 01
+1265  B014 00 00 3A FD
+1265  B018 33 32 37 36
+1265  B01C 37 0E 00 00
+1265  B020 7F FF 00 0D
+1266  B024              l10_len EQU     $-l10
+1267  B024
+1268  B024 00 14                DB      0,20
+1269  B026 2A 00                DW      l20_len
+1270  B028 F9 C0 31 35  l20:    DB      RANDOMIZE, USR, "15619", $0E, $00, $00
+1270  B02C 36 31 39 0E
+1270  B030 00 00
+1271  B032 03 3D                DW      15619
+1272  B034 00 3A EA 3A          DB      0, $3A, REM, $3A, "LOAD ", 34, "VGATEST", 34, " CODE 32768", $0D
+1272  B038 4C 4F 41 44
+1272  B03C 20 22 56 47
+1272  B040 41 54 45 53
+1272  B044 54 22 20 43
+1272  B048 4F 44 45 20
+1272  B04C 33 32 37 36
+1272  B050 38 0D
+1273  B052              l20_len EQU     $-l20
+1274  B052
+1275  B052 00 1E                DB      0,30
+1276  B054 0D 00                DW      l30_len
+1277  B056 F9 C0 33 32  l30:    DB      RANDOMIZE, USR, "32768", $0E, $00, $00
+1277  B05A 37 36 38 0E
+1277  B05E 00 00
+1278  B060 00 80                DW      32768
+1279  B062 0D                   DB      $0D
+1280  B063              l30_len EQU     $-l30
+1281  B063
+1282  B063 80                   DB      $80
+1283  B064              basic_loader_end:
 1284  B064
+1285  B064                      SAVETRD "vga_test.TRD","boot.B",basic_loader,basic_loader_end-basic_loader,10
+1286  B064                      SAVETRD "vga_test.TRD","VGATEST.C",$8000,ProgramEnd-$8000
+1287  B064
 # file closed: vga_test.asm
