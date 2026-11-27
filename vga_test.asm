@@ -873,7 +873,63 @@ Run640GeometryTest:
         CALL    SceneRunCommand
         OR      A
         RET     NZ
-        LD      HL,Msg640GeometryDrawn
+        ; Dedicated 640x480 bitmap-font sweep: 8x8, 16x16, 24x24, 32x32.
+        ; Keep the sample rows below y=100 so the 640-byte pitch offset
+        ; remains representable by the 16-bit bank-window address helper.
+        LD      A,1
+        LD      (ScenePitch640),A
+
+        LD      HL,Font640Size1
+        LD      (SceneTextPtr),HL
+        LD      A,8
+        LD      (SceneTextX),A
+        LD      A,2
+        LD      (SceneTextY),A
+        LD      A,1
+        LD      (SceneTextScale),A
+        LD      A,$FF
+        LD      (SceneTextColor),A
+        CALL    SceneDrawText
+
+        LD      HL,Font640Size2
+        LD      (SceneTextPtr),HL
+        LD      A,8
+        LD      (SceneTextX),A
+        LD      A,24
+        LD      (SceneTextY),A
+        LD      A,2
+        LD      (SceneTextScale),A
+        LD      A,$FC
+        LD      (SceneTextColor),A
+        CALL    SceneDrawText
+
+        LD      HL,Font640Size3
+        LD      (SceneTextPtr),HL
+        LD      A,8
+        LD      (SceneTextX),A
+        LD      A,46
+        LD      (SceneTextY),A
+        LD      A,3
+        LD      (SceneTextScale),A
+        LD      A,$F0
+        LD      (SceneTextColor),A
+        CALL    SceneDrawText
+
+        LD      HL,Font640Size4
+        LD      (SceneTextPtr),HL
+        LD      A,8
+        LD      (SceneTextX),A
+        LD      A,68
+        LD      (SceneTextY),A
+        LD      A,4
+        LD      (SceneTextScale),A
+        LD      A,$E3
+        LD      (SceneTextColor),A
+        CALL    SceneDrawText
+
+        XOR     A
+        LD      (ScenePitch640),A
+        LD      HL,Msg640FontDrawn
         CALL    DebugPrint
         CALL    SpectrumShowGeometryPass
         CALL    WaitSpace
@@ -1003,6 +1059,21 @@ ScenePlotPixel:
         LD      A,(ScenePixelY)
         LD      L,A
         LD      H,0
+        LD      A,(ScenePitch640)
+        OR      A
+        JR      Z,ScenePlotPitch320
+        ; y*640 = (y*5)*128. Test rows are constrained to y<=99.
+        PUSH    HL
+        ADD     HL,HL
+        ADD     HL,HL
+        POP     DE
+        ADD     HL,DE                 ; y*5
+        ADD     HL,HL                 ; y*10
+        REPT    6
+        ADD     HL,HL                 ; y*640
+        ENDR
+        JR      ScenePlotAddressReady
+ScenePlotPitch320:
         ADD     HL,HL
         ADD     HL,HL
         ADD     HL,HL
@@ -1013,6 +1084,7 @@ ScenePlotPixel:
         LD      D,A
         LD      E,0                   ; y*256
         ADD     HL,DE                 ; y*320
+ScenePlotAddressReady:
         LD      A,(ScenePixelX)
         LD      E,A
         LD      D,0
@@ -2476,6 +2548,7 @@ SceneWorkX:        DB 0
 SceneWorkY:        DB 0
 ScenePixelX:       DB 0
 ScenePixelY:       DB 0
+ScenePitch640:     DB 0
 SceneRowsLeft:     DB 0
 SceneColumnsLeft:  DB 0
 CurrentBank: DB 0
@@ -2598,6 +2671,11 @@ MsgGeometryStart: DEFM "VGA GEOMETRY + MIXED-SIZE TEXT START",13,10,0
 MsgGeometryPass:  DEFM "VGA GEOMETRY + SCALED TEXT DRAWN",13,10,0
 Msg640GeometryStart: DEFM "VGA 640X480 GEOMETRY + CLIPPING START",13,10,0
 Msg640GeometryDrawn: DEFM "VGA 640X480 CIRCLE ELLIPSE TRIANGLE CLIP DRAWN",13,10,0
+Msg640FontDrawn: DEFM "VGA 640X480 FONT SIZES 8X8 16X16 24X24 32X32 DRAWN",13,10,0
+Font640Size1: DEFM "SIZE 1",0
+Font640Size2: DEFM "SIZE 2",0
+Font640Size3: DEFM "SIZE 3",0
+Font640Size4: DEFM "SIZE 4",0
 MsgTextStart: DEFM "VGA TEXT MODE: 80X25 OUTPUT + SCROLL START",13,10,0
 MsgTextPass: DEFM "VGA TEXT PASS: SCROLL + 16 COLORS + PLANE READBACK",13,10,0
 MsgTextFail: DEFM "VGA TEXT MODE FAIL: OUTPUT OR SCROLL READBACK",13,10,0
