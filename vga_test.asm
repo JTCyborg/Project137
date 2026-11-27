@@ -389,11 +389,9 @@ Program2DTestPalette:
         RET
 
 ; -------------------------------------------------------------------------
-; 2D gradient test.
-; Programs all 256 DAC entries, then uses 256 accelerator SOLID FILL
-; commands to paint a full 320x200 horizontal hue gradient. The first
-; 64 palette bands are 2 pixels wide and the remaining 192 are 1 pixel,
-; giving exactly 320 pixels. No CPU framebuffer writes are used.
+; 2D gradient test. One dedicated accelerator command (CMD=4) interpolates
+; the 8-bpp palette index from 00h to FFh across a 320x200 rectangle.
+; No CPU framebuffer writes and no per-column command loop are used.
 ; Returns A=0 on success, A=1 on accelerator/readback failure.
 ; -------------------------------------------------------------------------
 Run2DGradientTest:
@@ -407,75 +405,29 @@ Run2DGradientTest:
         CALL    ProgramDacPalette
         CALL    ConfigureCurrentMode
 
-        ; Common parameters: base 0, pitch 320, y=0, height=200.
         LD      HL,AccelGradientRegs
         LD      A,AccelGradientRegsEnd-AccelGradientRegs
         CALL    WriteAccelRegisterTable
 
-        XOR     A
-        LD      (GradientIndex),A
-        LD      HL,0
-        LD      (GradientX),HL
-
-Run2DGradientColumn:
-        ; X position is accumulated because the first 64 bands are 2 px.
-        LD      HL,(GradientX)
-        LD      A,L
-        LD      E,A
-        LD      A,$14
-        CALL    WriteAccelRegister
-        LD      HL,(GradientX)
-        LD      A,H
-        LD      E,A
-        LD      A,$15
-        CALL    WriteAccelRegister
-
-        ; Palette index is also the 8-bpp fill colour.
-        LD      A,(GradientIndex)
-        LD      E,A
-        LD      A,$1C
-        CALL    WriteAccelRegister
-
-        ; Width=2 for indices 0..63, then width=1 for 64..255.
-        LD      A,(GradientIndex)
-        CP      64
-        LD      E,1
-        JR      NC,Run2DGradientWidthReady
-        LD      E,2
-Run2DGradientWidthReady:
-        LD      A,$18
-        CALL    WriteAccelRegister
-
+        ; CMD 4: interpolate colour 00h -> FFh across 320 pixels.
         LD      A,0
-        LD      E,1
+        LD      E,4
         CALL    WriteAccelRegister
         CALL    CheckAccelDone
         OR      A
         JP      NZ,Run2DGradientFailed
 
-        ; Advance X by the just-painted band width.
-        LD      A,(GradientIndex)
-        CP      64
-        LD      DE,1
-        JR      NC,Run2DGradientAdvance
-        LD      DE,2
-Run2DGradientAdvance:
-        LD      HL,(GradientX)
-        ADD     HL,DE
-        LD      (GradientX),HL
-
-        LD      A,(GradientIndex)
-        INC     A
-        LD      (GradientIndex),A
-        JR      NZ,Run2DGradientColumn
-
-        ; Confirm both ends of the 320-pixel gradient in VRAM.
+        ; Read back first, midpoint (x=160 -> 80h), and last pixel.
         XOR     A
         LD      BC,$03DF
         OUT     (C),A
         LD      HL,$C000
         LD      A,(HL)
         OR      A
+        JR      NZ,Run2DGradientReadbackFailed
+        LD      HL,$C0A0
+        LD      A,(HL)
+        CP      $80
         JR      NZ,Run2DGradientReadbackFailed
         LD      HL,$C13F
         LD      A,(HL)
@@ -502,10 +454,12 @@ AccelGradientRegs:
         DB $02,$00
         DB $08,$00,$09,$00,$0A,$00,$0B,$00 ; destination base = 0
         DB $0E,$40,$0F,$01                 ; destination pitch = 320
+        DB $14,$00,$15,$00                 ; x = 0
         DB $16,$00,$17,$00                 ; y = 0
-        DB $19,$00                         ; width high = 0
+        DB $18,$40,$19,$01                 ; width = 320
         DB $1A,$C8,$1B,$00                 ; height = 200
-        DB $1D,$00,$1E,$00,$1F,$00         ; colour upper bytes = 0
+        DB $1C,$00,$1D,$00,$1E,$00,$1F,$00 ; start colour = 00000000h
+        DB $20,$FF,$21,$00,$22,$00,$23,$00 ; end colour = 000000FFh
 AccelGradientRegsEnd:
 
 ; -------------------------------------------------------------------------
@@ -1561,8 +1515,8 @@ Screen2DHeading: DEFM "VGA 2D ACCELERATOR TEST",13,13,0
 Screen2DRunning: DEFM "SOLID FILL: 100x60",13,"BITBLT: 100x60",13,"LINE: 0,0 TO 319,199",13,"STATUS: RUNNING",0
 Screen2DPassed: DEFM "SOLID FILL: PASS",13,"BITBLT: PASS",13,"LINE: PASS",13,"VRAM READBACK: PASS",13,13,"PRESS SPACE",0
 Screen2DGradientHeading: DEFM "VGA 2D 256-COLOR GRADIENT",13,13,0
-Screen2DGradientRunning: DEFM "DAC: 256 HUE ENTRIES",13,"2D SOLID FILL: 256 BANDS",13,"FRAMEBUFFER: 320x200x8",13,"STATUS: RUNNING",0
-Screen2DGradientPassed: DEFM "256-COLOR HUE GRADIENT: PASS",13,"2D FILL COMMANDS: 256",13,"VRAM ENDPOINTS: PASS",13,13,"PRESS SPACE",0
+Screen2DGradientRunning: DEFM "DAC: 256 HUE ENTRIES",13,"2D GRADIENT FILL: ONE COMMAND",13,"FRAMEBUFFER: 320x200x8",13,"STATUS: RUNNING",0
+Screen2DGradientPassed: DEFM "HARDWARE GRADIENT FILL: PASS",13,"2D GRADIENT COMMAND: 1",13,"VRAM ENDPOINTS: PASS",13,13,"PRESS SPACE",0
 Screen2DGradientFailed: DEFM "2D GRADIENT FAILED",13,"CHECK 3E2h / 3E3h",0
 Screen2DFailed: DEFM "2D ACCELERATOR TEST FAILED",13,"CHECK PORTS 3E2h / 3E3h",0
 ScreenDacHeading: DEFM "INDEXED VGA PALETTE TEST",13,13,0
