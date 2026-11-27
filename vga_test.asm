@@ -41,12 +41,18 @@ VgaTestEntry:
         LD      HL,MsgAdapterInit
         CALL    DebugPrint
 
-        CALL    SpectrumShowInitialMode
-
+        ; Enable the adapter before running any engine tests.
         ; 3DEh: software mode = 1, aperture enable = 1, bank 0.
         LD      BC,$03DE
         LD      A,$03
         OUT     (C),A
+
+        ; Run 2D engine tests first, before framebuffer and palette sweeps.
+        CALL    Run2DAcceleratorTest
+        OR      A
+        JP      NZ,AccelTestFailed
+
+        CALL    SpectrumShowInitialMode
 
         ; Configure packed-pixel 640x480 RGB565:
         ; XRES = 0280h, YRES = 01E0h, BPP = 16, ENABLE = 1.
@@ -85,11 +91,8 @@ VgaTestEntry:
         LD      HL,MsgReadbackPass
         CALL    DebugPrint
 
+        ; Palette/resolution matrix is deliberately the final test group.
         CALL    RunPackedModeSweep
-
-        CALL    Run2DAcceleratorTest
-        OR      A
-        JP      NZ,AccelTestFailed
 
         LD      HL,MsgReady
         CALL    DebugPrint
