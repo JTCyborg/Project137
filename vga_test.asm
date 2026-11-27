@@ -781,7 +781,7 @@ TextCrtcWrite:
         LD      A,6
         OUT     (C),A
 
-        ; Clear 2000 character cells in plane 0 with spaces.
+        ; Clear the 4000-byte text scanout span in plane 0 (80x25, 2-byte stride).
         LD      BC,$03C4
         LD      A,2
         OUT     (C),A
@@ -789,7 +789,7 @@ TextCrtcWrite:
         LD      A,1
         OUT     (C),A
         LD      HL,$C000
-        LD      BC,2000
+        LD      BC,4000
         LD      D,' '
 TextClearChars:
         LD      (HL),D
@@ -799,7 +799,7 @@ TextClearChars:
         OR      C
         JR      NZ,TextClearChars
 
-        ; Initialize all attributes in plane 1 to light grey on black.
+        ; Initialize the matching 4000-byte text scanout span in plane 1.
         LD      BC,$03C4
         LD      A,2
         OUT     (C),A
@@ -807,7 +807,7 @@ TextClearChars:
         LD      A,2
         OUT     (C),A
         LD      HL,$C000
-        LD      BC,2000
+        LD      BC,4000
         LD      D,$07
 TextClearAttrs:
         LD      (HL),D
@@ -826,33 +826,33 @@ TextClearAttrs:
         LD      A,$0B
         LD      (TextAttribute),A
         LD      HL,TextLine1
-        LD      DE,$C050
+        LD      DE,$C0A0
         CALL    TextWriteString
         LD      A,$0A
         LD      (TextAttribute),A
         LD      HL,TextLine2
-        LD      DE,$C0A0
+        LD      DE,$C140
         CALL    TextWriteString
         LD      A,$0E
         LD      (TextAttribute),A
         LD      HL,TextLine3
-        LD      DE,$C0F0
+        LD      DE,$C1E0
         CALL    TextWriteString
         LD      A,$0C
         LD      (TextAttribute),A
         LD      HL,TextLine4
-        LD      DE,$C140
+        LD      DE,$C280
         CALL    TextWriteString
 
         LD      A,$0F
         LD      (TextAttribute),A
         LD      HL,TextLine5
-        LD      DE,$C190
+        LD      DE,$C320
         CALL    TextWriteString
 
         ; Draw all sixteen VGA foreground colours on a blue background.
-        ; Row 6 is intentionally below the existing sample text so the
-        ; subsequent scroll moves this colour ramp to row 5.
+        ; Row 6 starts at C3C0h (160-byte row stride); after scrolling it
+        ; moves to row 5 at C320h.
         CALL    TextWriteColorRamp
 
         ; Scroll both VGA text planes up by one 80-character row.
@@ -869,9 +869,9 @@ TextClearAttrs:
         INC     C
         XOR     A
         OUT     (C),A
-        LD      HL,$C050
+        LD      HL,$C0A0
         LD      DE,$C000
-        LD      BC,1920
+        LD      BC,3840
         LDIR
 
         ; Read plane 1 and write plane 1.
@@ -887,20 +887,20 @@ TextClearAttrs:
         INC     C
         LD      A,1
         OUT     (C),A
-        LD      HL,$C050
+        LD      HL,$C0A0
         LD      DE,$C000
-        LD      BC,1920
+        LD      BC,3840
         LDIR
 
-        ; Clear the newly exposed bottom row.
+        ; Clear the newly exposed bottom row (80 cells x 2 bytes).
         LD      BC,$03C4
         LD      A,2
         OUT     (C),A
         INC     C
         LD      A,1
         OUT     (C),A
-        LD      HL,$C780
-        LD      BC,80
+        LD      HL,$CF00
+        LD      BC,160
         LD      D,' '
 TextClearBottomChars:
         LD      (HL),D
@@ -930,7 +930,7 @@ TextClearBottomAttrs:
         LD      A,$0A
         LD      (TextAttribute),A
         LD      HL,TextScrollPassed
-        LD      DE,$C780
+        LD      DE,$CF00
         CALL    TextWriteString
 
         ; Verify that old row 1 moved to row 0 in both planes.
@@ -961,22 +961,22 @@ TextClearBottomAttrs:
         INC     C
         XOR     A
         OUT     (C),A
-        LD      A,($C780)
+        LD      A,($CF00)
         CP      'S'
         JP      NZ,TextModeFailed
 
         ; Verify the colour ramp survived the scroll in both VGA planes.
-        ; It moved from row 6 (C1E0h) to row 5 (C190h).
+        ; It moved from row 6 (C3C0h) to row 5 (C320h).
         LD      BC,$03CE
         LD      A,4
         OUT     (C),A
         INC     C
         XOR     A
         OUT     (C),A
-        LD      A,($C190)
+        LD      A,($C320)
         CP      'A'
         JP      NZ,TextModeFailed
-        LD      A,($C19F)
+        LD      A,($C33E)
         CP      'P'
         JP      NZ,TextModeFailed
 
@@ -989,7 +989,7 @@ TextClearBottomAttrs:
         LD      A,($C190)
         CP      $10
         JP      NZ,TextModeFailed
-        LD      A,($C197)
+        LD      A,($C32E)
         CP      $17
         JP      NZ,TextModeFailed
         LD      A,($C19F)
@@ -1011,7 +1011,7 @@ TextModeFailed:
         LD      A,1
         RET
 
-; HL = zero-terminated string, DE = text-cell offset in bank 6.
+; HL = zero-terminated string, DE = text-plane byte offset in bank 6.
 ; Writes the character to plane 0 and its attribute to plane 1.
 TextWriteString:
         LD      A,(HL)
@@ -1036,6 +1036,7 @@ TextWriteString:
         LD      (DE),A
         INC     HL
         INC     DE
+        INC     DE
         JP      TextWriteString
 
 ; Writes A..P with foreground colours 0..15 on blue background.
@@ -1047,7 +1048,7 @@ TextWriteColorRamp:
         INC     C
         LD      A,1
         OUT     (C),A
-        LD      HL,$C1E0
+        LD      HL,$C3C0
         LD      B,16
         LD      A,'A'
 TextColorChars:
