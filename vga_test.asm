@@ -486,7 +486,6 @@ ModeFillByte:
         XOR     A
         LD      (PatternCounter),A
         LD      (DacIndex),A
-        POP     HL                    ; restore framebuffer write pointer
         JR      ModePatternAdvanceDone
 
 ModePatternContinue:
@@ -505,8 +504,8 @@ ModePatternContinue:
         JR      ModePatternAdvanceDone
 ModePatternHold:
         LD      (PatternCounter),A
-        POP     HL                    ; restore framebuffer write pointer
 ModePatternAdvanceDone:
+        POP     HL                    ; restore framebuffer write pointer
         DEC     BC
         LD      A,B
         OR      C
