@@ -795,6 +795,11 @@ TextClearAttrs:
         LD      DE,$C140
         CALL    TextWriteString
 
+        ; Draw all sixteen VGA foreground colours on a blue background.
+        ; Row 6 is intentionally below the existing sample text so the
+        ; subsequent scroll moves this colour ramp to row 5.
+        CALL    TextWriteColorRamp
+
         ; Scroll both VGA text planes up by one 80-character row.
         ; Read plane 0 and write plane 0.
         LD      BC,$03C4
@@ -905,6 +910,37 @@ TextClearBottomAttrs:
         CP      'S'
         JP      NZ,TextModeFailed
 
+        ; Verify the colour ramp survived the scroll in both VGA planes.
+        ; It moved from row 6 (C1E0h) to row 5 (C190h).
+        LD      BC,$03CE
+        LD      A,4
+        OUT     (C),A
+        INC     C
+        XOR     A
+        OUT     (C),A
+        LD      A,($C190)
+        CP      'A'
+        JP      NZ,TextModeFailed
+        LD      A,($C19F)
+        CP      'P'
+        JP      NZ,TextModeFailed
+
+        LD      BC,$03CE
+        LD      A,4
+        OUT     (C),A
+        INC     C
+        LD      A,1
+        OUT     (C),A
+        LD      A,($C190)
+        CP      $10
+        JP      NZ,TextModeFailed
+        LD      A,($C197)
+        CP      $17
+        JP      NZ,TextModeFailed
+        LD      A,($C19F)
+        CP      $1F
+        JP      NZ,TextModeFailed
+
         LD      HL,MsgTextPass
         CALL    DebugPrint
         CALL    SpectrumShowTextPass
@@ -946,6 +982,40 @@ TextWriteString:
         INC     HL
         INC     DE
         JP      TextWriteString
+
+; Writes A..P with foreground colours 0..15 on blue background.
+; VGA attribute byte = 10h..1Fh; the complete ramp is 16 cells wide.
+TextWriteColorRamp:
+        LD      BC,$03C4
+        LD      A,2
+        OUT     (C),A
+        INC     C
+        LD      A,1
+        OUT     (C),A
+        LD      HL,$C1E0
+        LD      B,16
+        LD      A,'A'
+TextColorChars:
+        LD      (HL),A
+        INC     HL
+        INC     A
+        DJNZ    TextColorChars
+
+        LD      BC,$03C4
+        LD      A,2
+        OUT     (C),A
+        INC     C
+        LD      A,2
+        OUT     (C),A
+        LD      HL,$C1E0
+        LD      B,16
+        LD      A,$10
+TextColorAttrs:
+        LD      (HL),A
+        INC     HL
+        INC     A
+        DJNZ    TextColorAttrs
+        RET
 
 AccelReadbackFail:
         LD      HL,Msg2DReadbackFail
@@ -1910,13 +1980,14 @@ Msg2DFail:        DEFM "2D ENGINE COMMAND FAILED",13,10,0
 Msg2DReadbackFail: DEFM "2D ENGINE VRAM READBACK FAIL",13,10,0
 Msg2DGradientStart: DEFM "2D ENGINE: 256-COLOR GRADIENT START",13,10,0
 MsgTextStart: DEFM "VGA TEXT MODE: 80X25 OUTPUT + SCROLL START",13,10,0
-MsgTextPass: DEFM "VGA TEXT MODE PASS: OUTPUT SCROLL AND PLANE READBACK",13,10,0
+MsgTextPass: DEFM "VGA TEXT PASS: SCROLL + 16 COLORS + PLANE READBACK",13,10,0
 MsgTextFail: DEFM "VGA TEXT MODE FAIL: OUTPUT OR SCROLL READBACK",13,10,0
 TextLine0: DEFM "PROJECT137 - VGA TEXT MODE TEST",0
 TextLine1: DEFM "80x25 CHARACTERS / 16 FOREGROUND COLOURS",0
 TextLine2: DEFM "PLANE 0 STORES CHARACTER CODES",0
 TextLine3: DEFM "PLANE 1 STORES COLOUR ATTRIBUTES",0
 TextLine4: DEFM "SCROLL TEST: THIS LINE MOVES UP",0
+TextLine5: DEFM "16 FOREGROUND COLORS ON BLUE",0
 TextScrollPassed: DEFM "SCROLL COMPLETE - PASS",0
 Msg2DGradientPass: DEFM "2D ENGINE PASS: 256-COLOR GRADIENT + READBACK",13,10,0
 Msg2DGradientFail: DEFM "2D ENGINE 256-COLOR GRADIENT FAIL",13,10,0
@@ -1958,7 +2029,7 @@ Screen2DGradientPassed: DEFM "2D GRADIENT FILL: PASS",13,"2D GRADIENT COMMAND: 1
 Screen2DGradientFailed: DEFM "2D GRADIENT FAILED",13,"CHECK 3E2h / 3E3h",0
 ScreenTextHeading: DEFM "VGA 80x25 TEXT MODE",13,13,0
 ScreenTextRunning: DEFM "PLANES: CHARACTER + ATTRIBUTE",13,"SCROLL: 1 ROW UP",13,"STATUS: RUNNING",0
-ScreenTextPassed: DEFM "TEXT OUTPUT: PASS",13,"SCROLL UP: PASS",13,"PLANE READBACK: PASS",13,13,"PRESS SPACE",0
+ScreenTextPassed: DEFM "TEXT OUTPUT: PASS",13,"SCROLL UP: PASS",13,"16 FOREGROUND COLORS: PASS",13,"PLANE READBACK: PASS",13,13,"PRESS SPACE",0
 ScreenTextFailed: DEFM "TEXT MODE / SCROLL FAILED",13,"CHECK VGA PLANAR ACCESS",0
 Screen2DFailed: DEFM "2D ACCELERATOR TEST FAILED",13,"CHECK PORTS 3E2h / 3E3h",0
 ScreenDacHeading: DEFM "INDEXED VGA PALETTE TEST",13,13,0
