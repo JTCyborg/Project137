@@ -470,7 +470,22 @@ Run2DGradientStatusFailed:
         JR      Z,Run2DGradientBadAddress
         CP      $84
         JR      Z,Run2DGradientBadCommand
+        CP      $80
+        JR      Z,Run2DGradientGenericError
+        CP      0
+        JR      Z,Run2DGradientZeroStatus
+        CP      1
+        JR      Z,Run2DGradientUnexpectedDone
         LD      HL,Msg2DGradientUnknownStatus
+        JR      Run2DGradientReportStatus
+Run2DGradientGenericError:
+        LD      HL,Msg2DGradientGenericError
+        JR      Run2DGradientReportStatus
+Run2DGradientZeroStatus:
+        LD      HL,Msg2DGradientZeroStatus
+        JR      Run2DGradientReportStatus
+Run2DGradientUnexpectedDone:
+        LD      HL,Msg2DGradientUnexpectedDone
         JR      Run2DGradientReportStatus
 Run2DGradientVbeDisabled:
         LD      HL,Msg2DGradientVbeDisabled
@@ -485,6 +500,17 @@ Run2DGradientBadCommand:
         LD      HL,Msg2DGradientBadCommand
 Run2DGradientReportStatus:
         CALL    DebugPrint
+        ; Print the exact status byte read from accelerator register 01h.
+        LD      BC,$03E2
+        LD      A,1
+        OUT     (C),A
+        INC     C
+        IN      A,(C)
+        CALL    DebugHexByte
+        LD      A,13
+        OUT     ($EF),A
+        LD      A,10
+        OUT     ($EF),A
         JP      Run2DGradientFailCommon
 
 Run2DGradientReadbackFailed:
@@ -1542,6 +1568,9 @@ Msg2DGradientBadRect: DEFM "2D GRADIENT ERROR: INVALID RECTANGLE (82)",13,10,0
 Msg2DGradientBadAddress: DEFM "2D GRADIENT ERROR: INVALID VRAM ADDRESS (83)",13,10,0
 Msg2DGradientBadCommand: DEFM "2D GRADIENT ERROR: UNSUPPORTED COMMAND (84)",13,10,0
 Msg2DGradientUnknownStatus: DEFM "2D GRADIENT ERROR: UNKNOWN STATUS",13,10,0
+Msg2DGradientGenericError: DEFM "2D GRADIENT ERROR: GENERIC ERROR (80)",13,10,0
+Msg2DGradientZeroStatus: DEFM "2D GRADIENT ERROR: ZERO STATUS (00)",13,10,0
+Msg2DGradientUnexpectedDone: DEFM "2D GRADIENT ERROR: STATUS DONE BUT CHECK FAILED (01)",13,10,0
 MsgPaletteLevel: DEFM "PALETTE LEVEL ",0
 MsgPaletteSuffix: DEFM " (2/4/16/256 COLOR GRADIENT)",13,10,0
 MsgPalettePass:  DEFM "DAC READBACK PASS",13,10,0
