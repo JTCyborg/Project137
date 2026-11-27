@@ -1771,13 +1771,11 @@
 1629  8CB0 1E 00 1F 00
 1630  8CB4              Geom640ClipRightEnd:
 1631  8CB4              Geom640ClipTop:
-vga_test.asm(1632): warning: value 0x140 is truncated to 8bit value: 0x40
-1632  8CB4 02 00 0E 80          DB $02,$00,$0E,$80,$0F,$02,$14,320,$15,0,$16,$D8,$17,$FF
+1632  8CB4 02 00 0E 80          DB $02,$00,$0E,$80,$0F,$02,$14,$40,$15,1,$16,$D8,$17,$FF
 1632  8CB8 0F 02 14 40
-1632  8CBC 15 00 16 D8
+1632  8CBC 15 01 16 D8
 1632  8CC0 17 FF
-vga_test.asm(1633): warning: value 0x140 is truncated to 8bit value: 0x40
-1633  8CC2 20 40 21 00          DB $20,320,$21,0,$22,180,$23,0,$1C,$FF,$1D,0,$1E,0,$1F,0
+1633  8CC2 20 40 21 01          DB $20,$40,$21,1,$22,180,$23,0,$1C,$FF,$1D,0,$1E,0,$1F,0
 1633  8CC6 22 B4 23 00
 1633  8CCA 1C FF 1D 00
 1633  8CCE 1E 00 1F 00
