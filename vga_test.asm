@@ -1066,12 +1066,20 @@ TextColorChars:
         OUT     (C),A
         LD      HL,$C3C0
         LD      B,16
-        LD      A,$10
+        LD      D,$10
 TextColorAttrs:
+        ; Blue foreground (index 1) is invisible on a blue background.
+        ; Keep the blue background for the other colours, but use black
+        ; behind blue so that all sixteen foreground entries are visible.
+        LD      A,D
+        CP      $11
+        JR      NZ,TextColorAttrStore
+        AND     $0F
+TextColorAttrStore:
         LD      (HL),A
         INC     HL
         INC     HL
-        INC     A
+        INC     D
         DJNZ    TextColorAttrs
         RET
 
