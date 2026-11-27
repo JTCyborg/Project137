@@ -440,6 +440,8 @@ FillModeVRAM:
         LD      (DacIndex),A
         LD      A,0
         LD      (PatternCounter),A
+        LD      (ModeXCounter),A
+        LD      (ModeXCounter+1),A
 ModeFillBank:
         LD      A,(CurrentBank)
         LD      BC,$03DF
@@ -461,6 +463,30 @@ ModeFillByte:
         LD      A,(DacIndex)
         LD      (HL),A
         INC     HL
+
+        ; Keep the palette pattern aligned to each scanline. The previous
+        ; linear pattern advanced across row boundaries, producing diagonal
+        ; colour bands (especially obvious with 16 and 256 entries).
+        LD      HL,(ModeXCounter)
+        INC     HL
+        LD      (ModeXCounter),HL
+        PUSH    HL
+        LD      A,(ModeXLo)
+        LD      E,A
+        LD      A,(ModeXHi)
+        LD      D,A
+        OR      A
+        SBC     HL,DE
+        POP     HL
+        JR      NZ,ModePatternContinue
+        LD      HL,0
+        LD      (ModeXCounter),HL
+        XOR     A
+        LD      (PatternCounter),A
+        LD      (DacIndex),A
+        JR      ModePatternAdvanceDone
+
+ModePatternContinue:
         LD      A,(PatternCounter)
         INC     A
         CP      8
@@ -1006,6 +1032,7 @@ PaletteMask: DB 0
 PaletteRemaining: DW 0
 PaletteStride: DW 0
 PatternCounter: DB 0
+ModeXCounter: DW 0
 
 ; Sixteen initialized EGA palette indices, each repeated twice.
 ; Project132 also uses EGA entry 15 as white for its on-screen banner.
