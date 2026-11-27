@@ -527,7 +527,7 @@ ModePatternAdvanceDone:
         DEC     BC
         LD      A,B
         OR      C
-        JR      NZ,ModeFillByte
+        JP      NZ,ModeFillByte
         LD      A,(CurrentBank)
         INC     A
         LD      (CurrentBank),A
